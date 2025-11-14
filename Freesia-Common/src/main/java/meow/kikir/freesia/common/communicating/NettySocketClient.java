@@ -86,22 +86,22 @@ public class NettySocketClient {
     }
 
     public void sendToMaster(IMessage<?> message) {
-        if (this.channel == null) {
-            throw new IllegalStateException("Not connected");
-        }
+        this.sendToMaster0(message, this.channel);
+    }
 
-        if (!this.channel.isActive()) {
+    public void sendToMaster0(IMessage<?> message, Channel ch) {
+        if (ch == null || !ch.isActive()) {
             this.packetFlushQueue.offer(message);
             return;
         }
 
-        if (!this.channel.eventLoop().inEventLoop()) {
-            this.channel.eventLoop().execute(() -> this.sendToMaster(message));
+        if (!ch.eventLoop().inEventLoop()) {
+            ch.eventLoop().execute(() -> this.sendToMaster(message));
             return;
         }
 
         this.flushMessageQueueIfNeeded();
 
-        this.channel.writeAndFlush(message);
+        ch.writeAndFlush(message);
     }
 }

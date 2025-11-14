@@ -23,11 +23,11 @@ public interface YsmPacketProxy {
 
     void sendEntityStateTo(@NotNull Player target);
 
-    void setEntityDataRaw(NBTCompound data);
+    void setEntityDataRaw(byte[] data);
 
     void notifyFullTrackerUpdates();
 
-    NBTCompound getCurrentEntityState();
+    byte[] getCurrentEntityState();
 
     void setPlayerWorkerEntityId(int id);
 

@@ -83,7 +83,9 @@ public class YsmMapperPayloadManager {
     }
 
     public CompletableFuture<Boolean> setVirtualPlayerEntityState(UUID playerUUID, NBTCompound nbt) {
-        final YsmPacketProxy virtualProxy;
+        throw new UnsupportedOperationException("TODO");
+
+        /*final YsmPacketProxy virtualProxy;
 
         synchronized (this.virtualProxies) {
             virtualProxy = this.virtualProxies.get(playerUUID);
@@ -93,7 +95,7 @@ public class YsmMapperPayloadManager {
             return CompletableFuture.completedFuture(false);
         }
 
-        virtualProxy.setEntityDataRaw(nbt);
+        //virtualProxy.setEntityDataRaw(nbt); // TODO
         virtualProxy.notifyFullTrackerUpdates();
 
         final NBTCompound entityData = virtualProxy.getCurrentEntityState();
@@ -128,11 +130,11 @@ public class YsmMapperPayloadManager {
             }
         }).schedule();
 
-        return callback;
+        return callback;*/
     }
 
     public CompletableFuture<Boolean> addVirtualPlayer(UUID playerUUID, int playerEntityId) {
-        if (Freesia.PROXY_SERVER.getPlayer(playerUUID).isPresent()) {
+        /*if (Freesia.PROXY_SERVER.getPlayer(playerUUID).isPresent()) {
             return CompletableFuture.completedFuture(false);
         }
 
@@ -162,7 +164,7 @@ public class YsmMapperPayloadManager {
                     final DefaultNBTSerializer serializer = new DefaultNBTSerializer();
                     final NBTCompound read = (NBTCompound) serializer.deserializeTag(NBTLimiter.forBuffer(data, Integer.MAX_VALUE), new DataInputStream(new ByteArrayInputStream(data)), true);
 
-                    createdVirtualProxy.setEntityDataRaw(read);
+                    // createdVirtualProxy.setEntityDataRaw(read); // TODO
                     createdVirtualProxy.setPlayerEntityId(playerEntityId);
                     createdVirtualProxy.setPlayerWorkerEntityId(0);
                 } catch (Exception ex1) {
@@ -174,11 +176,12 @@ public class YsmMapperPayloadManager {
             });
 
             return callback;
-        }
+        }*/
+        throw new UnsupportedOperationException("TODO");
     }
 
     public CompletableFuture<Boolean> removeVirtualPlayer(UUID playerUUID) {
-        final YsmPacketProxy removedProxy;
+        /*final YsmPacketProxy removedProxy;
 
         synchronized (this.virtualProxies) {
             removedProxy = this.virtualProxies.remove(playerUUID);
@@ -218,7 +221,8 @@ public class YsmMapperPayloadManager {
             }
         }).schedule();
 
-        return callback;
+        return callback;*/
+        throw new UnsupportedOperationException("TODO");
     }
 
     private void disconnectMapperWithoutKickingMaster(@NotNull MapperSessionProcessor connection) {

@@ -1,6 +1,5 @@
 package meow.kikir.freesia.velocity.network.ysm;
 
-import com.github.retrooper.packetevents.protocol.nbt.NBTCompound;
 import com.velocitypowered.api.event.ResultedEvent;
 import com.velocitypowered.api.proxy.Player;
 import io.netty.buffer.Unpooled;
@@ -8,14 +7,10 @@ import meow.kikir.freesia.velocity.FreesiaConstants;
 import meow.kikir.freesia.velocity.Freesia;
 import meow.kikir.freesia.velocity.YsmProtocolMetaFile;
 import meow.kikir.freesia.velocity.events.PlayerYsmHandshakeEvent;
-import meow.kikir.freesia.velocity.events.PlayerEntityStateChangeEvent;
 import meow.kikir.freesia.velocity.utils.FriendlyByteBuf;
 import io.netty.buffer.ByteBuf;
 import net.kyori.adventure.key.Key;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -45,30 +40,23 @@ public class RealPlayerYsmPacketProxyImpl extends YsmPacketProxyLayer{
                 return ProxyComputeResult.ofDrop(); // Do not process the entity state if it is not ours
             }
 
-            try {
-                Freesia.PROXY_SERVER.getEventManager().fire(new PlayerEntityStateChangeEvent(this.player,workerEntityId, this.nbtRemapper.readBound(mcBuffer))).thenAccept(result -> { // Use NbtRemapper for multi version clients
-                    final NBTCompound to = result.getEntityState();
+            final byte[] returnedNewData = new byte[mcBuffer.readableBytes()];
+            mcBuffer.readBytes(returnedNewData);
 
-                    this.acquireWriteReference(); // Acquire write reference
+            // Update stored data
+            this.acquireWriteReference(); // Acquire write reference
+            LAST_YSM_ENTITY_DATA_HANDLE.setVolatile(this, returnedNewData);
+            this.releaseWriteReference(); // Release write reference
 
-                    LAST_YSM_ENTITY_DATA_HANDLE.setVolatile(this, to);
-
-                    this.releaseWriteReference(); // Release write reference
-
-                    this.notifyFullTrackerUpdates(); // Notify updates
-                }).join(); // Force blocking as we do not want to break the sequence of the data
-            }catch (Exception e){
-                Freesia.LOGGER.error("Failed to process entity state update packet", e);
-            }
+            this.notifyFullTrackerUpdates(); // Notify updates
 
             return ProxyComputeResult.ofDrop();
         }
 
         if (packetId == YsmProtocolMetaFile.getS2CPacketId(FreesiaConstants.YsmProtocolMetaConstants.Clientbound.HAND_SHAKE_CONFIRMED)) {
             final String backendVersion = mcBuffer.readUtf();
-            final boolean canSwitchModel = mcBuffer.readBoolean();
 
-            Freesia.LOGGER.info("Replying ysm client with server version {}.Can switch model? : {}", backendVersion, canSwitchModel);
+            Freesia.LOGGER.info("Replying ysm client with server version {}.", backendVersion);
 
             return ProxyComputeResult.ofPass();
         }

@@ -83,6 +83,8 @@ public class WorkerMessageHandlerImpl extends NettyClientChannelHandlerLayer {
 
             final int generatedTraceId = this.traceIdGenerator.getAndIncrement();
 
+            System.out.println(generatedTraceId);
+
             final Consumer<byte[]> wrappedDecoder = content -> {
                 CompoundTag decoded = null;
 
@@ -115,7 +117,15 @@ public class WorkerMessageHandlerImpl extends NettyClientChannelHandlerLayer {
 
     @Override
     public void onMasterPlayerDataResponse(int traceId, byte[] content) {
-        final Consumer<byte[]> removed = this.playerDataGetCallbacks.remove(traceId);
+        System.out.println(traceId);
+        final Consumer<byte[]> removed;
+
+        final long readStamp = this.playerDataFetchCallbackLock.readLock();
+        try {
+            removed = this.playerDataGetCallbacks.remove(traceId);
+        }finally {
+            this.playerDataFetchCallbackLock.unlockRead(readStamp);
+        }
 
         if (removed == null) {
             EntryPoint.LOGGER_INST.warn("Null traceId {} !", traceId);

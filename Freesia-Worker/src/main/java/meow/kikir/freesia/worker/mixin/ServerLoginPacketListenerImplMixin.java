@@ -31,6 +31,7 @@ public abstract class ServerLoginPacketListenerImplMixin {
         final GameProfile requestedProfile = new GameProfile(serverboundHelloPacket.profileId(), this.requestedUsername);
 
         //Preload it to prevent load it blocking
+        EntryPoint.LOGGER_INST.info("Fetching player data for player {}.", requestedProfile.getName());
         ServerLoader.workerConnection.getPlayerData(requestedProfile.getId(), data -> {
             if (data != null) {
                 ServerLoader.playerDataCache.put(requestedProfile.getId(), data);
