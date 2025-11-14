@@ -83,8 +83,6 @@ public class WorkerMessageHandlerImpl extends NettyClientChannelHandlerLayer {
 
             final int generatedTraceId = this.traceIdGenerator.getAndIncrement();
 
-            System.out.println(generatedTraceId);
-
             final Consumer<byte[]> wrappedDecoder = content -> {
                 CompoundTag decoded = null;
 
