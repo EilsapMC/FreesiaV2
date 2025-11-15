@@ -108,14 +108,17 @@ public class RealPlayerYsmPacketProxyImpl extends YsmPacketProxyLayer{
 
         if (packetId == YsmProtocolMetaFile.getC2SPacketId(FreesiaConstants.YsmProtocolMetaConstants.Serverbound.MOLANG_EXECUTE_REQ)) {
             final String molangExpression = mcBuffer.readUtf();
-            final int entityId = mcBuffer.readVarInt();
+            final int entityId = mcBuffer.readVarInt(); // this is our entity on worker side and we currently don't need it
+
             final int currWorkerEntityId = this.getPlayerWorkerEntityId();
 
             if (currWorkerEntityId != -1) {
                 final FriendlyByteBuf newPacketByteBuf = new FriendlyByteBuf(Unpooled.buffer());
+
                 newPacketByteBuf.writeByte(YsmProtocolMetaFile.getC2SPacketId(FreesiaConstants.YsmProtocolMetaConstants.Serverbound.MOLANG_EXECUTE_REQ));
                 newPacketByteBuf.writeUtf(molangExpression);
                 newPacketByteBuf.writeVarInt(currWorkerEntityId);
+
                 return ProxyComputeResult.ofModify(newPacketByteBuf);
             }
         }

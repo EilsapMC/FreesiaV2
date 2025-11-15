@@ -54,7 +54,7 @@ public class Freesia implements PacketListener {
     public static Freesia INSTANCE = null;
     public static Logger LOGGER = null;
     public static ProxyServer PROXY_SERVER = null;
-    public static YsmClientKickingDetector kickChecker;
+    public static YsmClientHandShakeTimer kickChecker;
     public static YsmMapperPayloadManager mapperManager;
     public static NettySocketServer masterServer;
 
@@ -115,7 +115,7 @@ public class Freesia implements PacketListener {
         LOGGER.info("Initiating client kicker.");
 
         // Client detection
-        kickChecker = new YsmClientKickingDetector();
+        kickChecker = new YsmClientHandShakeTimer();
         kickChecker.bootstrap();
 
         LOGGER.info("Registering commands");

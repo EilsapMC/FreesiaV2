@@ -2,6 +2,7 @@ package meow.kikir.freesia.velocity;
 
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.scheduler.ScheduledTask;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.HashSet;
 import java.util.List;
@@ -10,13 +11,13 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-public class YsmClientKickingDetector implements Runnable {
+public class YsmClientHandShakeTimer implements Runnable {
     private final Map<Player, Long> lastNotDetected = new ConcurrentHashMap<>();
     private final long timeOut;
     private volatile boolean scheduleNext = true;
     private volatile ScheduledTask lastScheduled = null;
 
-    public YsmClientKickingDetector() {
+    public YsmClientHandShakeTimer() {
         this.timeOut = FreesiaConfig.ysmDetectionTimeout * 1000L * 1000L;
     }
 
@@ -56,6 +57,7 @@ public class YsmClientKickingDetector implements Runnable {
 
                 if (System.nanoTime() - joinTimeNanos > this.timeOut) {
                     if (!FreesiaConfig.kickIfYsmNotInstalled || Freesia.mapperManager.isPlayerInstalledYsm(target)) {
+                        this.lastNotDetected.remove(target);
                         continue;
                     }
 
@@ -66,14 +68,18 @@ public class YsmClientKickingDetector implements Runnable {
             for (Player target : toKickOrCleanUp) {
                 this.lastNotDetected.remove(target);
 
-                if (target.isActive()) {
-                    target.disconnect(Freesia.languageManager.i18n(FreesiaConstants.LanguageConstants.HANDSHAKE_TIMED_OUT, List.of(), List.of()));
-                }
+                this.doKickIfNeeded(target);
             }
         } finally {
             if (this.scheduleNext) {
                 this.lastScheduled = Freesia.PROXY_SERVER.getScheduler().buildTask(Freesia.INSTANCE, this).delay(50, TimeUnit.MILLISECONDS).schedule();
             }
+        }
+    }
+
+    private void doKickIfNeeded(@NotNull Player target) {
+        if (target.isActive()) {
+            target.disconnect(Freesia.languageManager.i18n(FreesiaConstants.LanguageConstants.HANDSHAKE_TIMED_OUT, List.of(), List.of()));
         }
     }
 }
