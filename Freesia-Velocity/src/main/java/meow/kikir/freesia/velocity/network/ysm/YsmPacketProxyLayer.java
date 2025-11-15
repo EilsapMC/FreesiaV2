@@ -1,16 +1,11 @@
 package meow.kikir.freesia.velocity.network.ysm;
 
 import ca.spottedleaf.concurrentutil.util.ConcurrentUtil;
-import com.github.retrooper.packetevents.PacketEvents;
-import com.github.retrooper.packetevents.protocol.nbt.NBTCompound;
-import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.velocitypowered.api.proxy.Player;
 import io.netty.buffer.Unpooled;
 import meow.kikir.freesia.velocity.Freesia;
 import meow.kikir.freesia.velocity.FreesiaConstants;
 import meow.kikir.freesia.velocity.YsmProtocolMetaFile;
-import meow.kikir.freesia.velocity.network.mc.NbtRemapper;
-import meow.kikir.freesia.velocity.network.mc.impl.StandardNbtRemapperImpl;
 import meow.kikir.freesia.velocity.utils.FriendlyByteBuf;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -32,9 +27,7 @@ import java.util.concurrent.CompletableFuture;
  */
 public abstract class YsmPacketProxyLayer implements YsmPacketProxy{
     protected final Player player;
-
     protected final UUID playerUUID;
-    protected final NbtRemapper nbtRemapper = new StandardNbtRemapperImpl();
 
     protected volatile MapperSessionProcessor handler;
 
