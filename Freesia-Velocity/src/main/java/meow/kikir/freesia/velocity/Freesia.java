@@ -43,7 +43,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 
-@Plugin(id = "freesia", name = "Freesia", version = BuildConstants.VERSION, authors = {"Earthme", "HappyRespawnanchor", "xiaozhangup"}, dependencies = @Dependency(id = "packetevents"))
+@Plugin(id = "freesia", name = "Freesia", version = BuildConstants.VERSION, authors = {"EarthMe", "HappyRespawnanchor", "xiaozhangup"}, dependencies = @Dependency(id = "packetevents"))
 public class Freesia implements PacketListener {
     public static final FreesiaPlayerTracker tracker = new FreesiaPlayerTracker();
     public static final IDataStorageManager realPlayerDataStorageManager = new DefaultRealPlayerDataStorageManagerImpl();
