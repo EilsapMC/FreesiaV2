@@ -28,7 +28,6 @@ import java.util.concurrent.CompletableFuture;
  *     1.This object is only can be used for once, any duplicated entity id and worker entity id updates will be ignored
  * because it cannot and should not be updated multiple times as we just use them for per mappers</p>
  * <p>
- *     2.Any write operations of ysm entity data is ONLY single thread safe!!!</p>
  *
  */
 public abstract class YsmPacketProxyLayer implements YsmPacketProxy{
@@ -288,7 +287,8 @@ public abstract class YsmPacketProxyLayer implements YsmPacketProxy{
             final Player receiver = queryResult.get();
 
             final FriendlyByteBuf wrappedPacketData = new FriendlyByteBuf(Unpooled.buffer());
-            wrappedPacketData.writeByte(4);
+
+            wrappedPacketData.writeByte(YsmProtocolMetaFile.getS2CPacketId(FreesiaConstants.YsmProtocolMetaConstants.Clientbound.ENTITY_DATA_UPDATE));
             wrappedPacketData.writeVarInt(entityId);
             wrappedPacketData.writeBytes(data);
 
