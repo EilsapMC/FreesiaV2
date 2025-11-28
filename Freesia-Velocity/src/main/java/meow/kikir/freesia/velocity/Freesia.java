@@ -15,6 +15,7 @@ import com.velocitypowered.api.event.connection.PluginMessageEvent;
 import com.velocitypowered.api.event.player.ServerConnectedEvent;
 import com.velocitypowered.api.event.player.ServerPreConnectEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
+import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Dependency;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.Player;
@@ -28,12 +29,9 @@ import meow.kikir.freesia.velocity.command.DispatchWorkerCommandCommand;
 import meow.kikir.freesia.velocity.i18n.I18NManager;
 import meow.kikir.freesia.velocity.network.backend.MasterServerMessageHandler;
 import meow.kikir.freesia.velocity.network.mc.FreesiaPlayerTracker;
-import meow.kikir.freesia.velocity.network.misc.VirtualPlayerManager;
 import meow.kikir.freesia.velocity.network.ysm.RealPlayerYsmPacketProxyImpl;
-import meow.kikir.freesia.velocity.network.ysm.VirtualYsmPacketProxyImpl;
 import meow.kikir.freesia.velocity.network.ysm.YsmMapperPayloadManager;
 import meow.kikir.freesia.velocity.storage.DefaultRealPlayerDataStorageManagerImpl;
-import meow.kikir.freesia.velocity.storage.DefaultVirtualPlayerDataStorageManagerImpl;
 import meow.kikir.freesia.velocity.storage.IDataStorageManager;
 import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.NotNull;
@@ -46,11 +44,12 @@ import java.util.UUID;
 @Plugin(id = "freesia", name = "Freesia", version = BuildConstants.VERSION, authors = {"EarthMe", "HappyRespawnanchor", "xiaozhangup"}, dependencies = @Dependency(id = "packetevents"))
 public class Freesia implements PacketListener {
     public static final FreesiaPlayerTracker tracker = new FreesiaPlayerTracker();
+
     public static final IDataStorageManager realPlayerDataStorageManager = new DefaultRealPlayerDataStorageManagerImpl();
-    public static final IDataStorageManager virtualPlayerDataStorageManager = new DefaultVirtualPlayerDataStorageManagerImpl();
-    public static final VirtualPlayerManager virtualPlayerManager = new VirtualPlayerManager();
     public static final Map<UUID, MasterServerMessageHandler> registedWorkers = Maps.newConcurrentMap();
+
     public static final I18NManager languageManager = new I18NManager();
+
     public static Freesia INSTANCE = null;
     public static Logger LOGGER = null;
     public static ProxyServer PROXY_SERVER = null;
@@ -75,6 +74,11 @@ public class Freesia implements PacketListener {
     }
 
     @Subscribe
+    public void onProxyShutdown(ProxyShutdownEvent event) {
+        masterServer.close();
+    }
+
+    @Subscribe
     public void onProxyStart(ProxyInitializeEvent event) {
         INSTANCE = this;
         LOGGER = this.logger;
@@ -95,7 +99,7 @@ public class Freesia implements PacketListener {
 
         LOGGER.info("Registering events and packet listeners.");
         // Mapper (Core function)
-        mapperManager = new YsmMapperPayloadManager(RealPlayerYsmPacketProxyImpl::new, VirtualYsmPacketProxyImpl::new);
+        mapperManager = new YsmMapperPayloadManager(RealPlayerYsmPacketProxyImpl::new);
         // Register mc packet listener
         PacketEvents.getAPI().getEventManager().registerListener(this, PacketListenerPriority.HIGHEST);
         // Attach to ysm channel
@@ -103,10 +107,6 @@ public class Freesia implements PacketListener {
         // Init tracker
         tracker.init();
         tracker.addRealPlayerTrackerEventListener(mapperManager::onRealPlayerTrackerUpdate);
-        tracker.addVirtualPlayerTrackerEventListener(mapperManager::onVirtualPlayerTrackerUpdate);
-
-        // Init virtual player manager
-        virtualPlayerManager.init();
 
         // Master controller service
         masterServer = new NettySocketServer(FreesiaConfig.masterServiceAddress, c -> new MasterServerMessageHandler());

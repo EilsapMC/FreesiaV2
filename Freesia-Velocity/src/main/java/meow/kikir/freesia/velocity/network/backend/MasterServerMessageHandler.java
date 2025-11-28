@@ -29,7 +29,7 @@ public class MasterServerMessageHandler extends NettyServerChannelHandlerLayer {
     private volatile UUID workerUUID;
     private volatile String workerName;
 
-    private volatile boolean commandDispatcherRetired = false;
+    private boolean commandDispatcherRetired = false;
     private final StampedLock commandDispatchCallbackLock = new StampedLock();
 
     public void dispatchCommandToWorker(String command, Consumer<Component> onDispatched) {

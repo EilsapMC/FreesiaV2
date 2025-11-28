@@ -1,6 +1,5 @@
 package meow.kikir.freesia.velocity.network.ysm;
 
-import com.github.retrooper.packetevents.protocol.nbt.NBTCompound;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import io.netty.buffer.ByteBuf;
@@ -10,9 +9,7 @@ import org.jetbrains.annotations.Nullable;
 
 
 public interface YsmPacketProxy {
-    default void setParentHandler(MapperSessionProcessor processor){
-        // No-op by default
-    }
+    void setParentHandler(MapperSessionProcessor processor);
 
     ProxyComputeResult processS2C(Key channelKey, ByteBuf copiedPacketData);
 
@@ -41,6 +38,10 @@ public interface YsmPacketProxy {
 
     default void executeMolang(int[] entityIds, String expression) {}
 
+
+    /*
+    下面的都是方便从 velocity 向玩家发包用的了(x)
+     */
     default void sendPluginMessageToOwner(@NotNull MinecraftChannelIdentifier channel, byte[] data){
         final Player owner = this.getOwner();
 

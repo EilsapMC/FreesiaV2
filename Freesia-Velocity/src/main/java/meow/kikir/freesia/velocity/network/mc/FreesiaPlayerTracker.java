@@ -21,7 +21,6 @@ public class FreesiaPlayerTracker {
     private static final MinecraftChannelIdentifier SYNC_CHANNEL_KEY = MinecraftChannelIdentifier.create("freesia", "tracker_sync");
 
     private final Set<BiConsumer<Player, Player>> realPlayerListeners = ConcurrentHashMap.newKeySet();
-    private final Set<BiConsumer<UUID, Player>> virtualPlayerListeners = ConcurrentHashMap.newKeySet();
 
     private final Map<Integer, Consumer<Set<UUID>>> pendingCanSeeTasks = new ConcurrentHashMap<>();
     private final AtomicInteger idGenerator = new AtomicInteger(0);
@@ -84,16 +83,6 @@ public class FreesiaPlayerTracker {
                                 Freesia.LOGGER.error("Can not process real tracker update!", e);
                             }
                         }
-
-                        return;
-                    }
-
-                    for (BiConsumer<UUID, Player> listener : this.virtualPlayerListeners) {
-                        try {
-                            listener.accept(beSeeingUUID, watcherPlayer);
-                        } catch (Exception e) {
-                            Freesia.LOGGER.error("Can not process virtual tracker update!", e);
-                        }
                     }
                 }
             }
@@ -136,10 +125,6 @@ public class FreesiaPlayerTracker {
         }
 
         return callback;
-    }
-
-    public void addVirtualPlayerTrackerEventListener(BiConsumer<UUID, Player> listener) {
-        this.virtualPlayerListeners.add(listener);
     }
 
     public void addRealPlayerTrackerEventListener(BiConsumer<Player, Player> listener) {

@@ -8,6 +8,7 @@ import java.util.concurrent.DelayQueue;
 import java.util.concurrent.Delayed;
 import java.util.concurrent.TimeUnit;
 
+@Deprecated
 public abstract class TimeExpiringCallbacker implements Delayed {
     private static final DelayQueue<TimeExpiringCallbacker> QUEUE = new DelayQueue<>();
     public static final Object NIL = new Object();

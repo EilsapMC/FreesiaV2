@@ -35,4 +35,18 @@ public class NettySocketServer {
                 .bind(this.bindAddress.getHostName(), this.bindAddress.getPort())
                 .awaitUninterruptibly();
     }
+
+    public void close() {
+        final ChannelFuture cfLocal = this.channelFuture;
+        this.channelFuture = null;
+
+        if (cfLocal == null) {
+            return;
+        }
+
+        cfLocal.channel().close();
+
+        this.masterLoopGroup.shutdownGracefully();
+        this.workerLoopGroup.shutdownGracefully();
+    }
 }

@@ -47,11 +47,6 @@ public class FreesiaConstants {
 
     }
 
-    public static final class MCProtocolConstants {
-        // protocol number of 1.20.2
-        public static final int PROTOCOL_NUM_V1202 = 764;
-    }
-
     public static class YsmProtocolMetaConstants {
         // C: Client | S: Server
 
