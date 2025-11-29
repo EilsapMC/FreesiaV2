@@ -63,7 +63,7 @@ public class MapperSessionProcessor implements SessionListener {
 
             final Player targetPlayer = player.get();
 
-            this.packetProxy.sendEntityStateTo(targetPlayer);
+            this.packetProxy.sendFullEntityDataTo(targetPlayer);
         }
     }
 

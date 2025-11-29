@@ -35,7 +35,8 @@ public abstract class YsmPacketProxyLayer implements YsmPacketProxy{
     private int workerEntityId = -1;
 
     private int entityDataReferenceCount = 0; // Used for read-writing lock but writing is always happening on a single thread
-    private byte[] lastYsmEntityData = null;
+    private byte[] lastYsmModelData = null;
+    private byte[] lastYsmAnimationData = null;
 
     private boolean proxyReady = false;
 
@@ -45,7 +46,8 @@ public abstract class YsmPacketProxyLayer implements YsmPacketProxy{
     protected static final VarHandle PLAYER_ENTITY_ID_HANDLE = ConcurrentUtil.getVarHandle(YsmPacketProxyLayer.class, "playerEntityId", int.class);
     protected static final VarHandle WORKER_ENTITY_ID_HANDLE = ConcurrentUtil.getVarHandle(YsmPacketProxyLayer.class, "workerEntityId", int.class);
 
-    protected static final VarHandle LAST_YSM_ENTITY_DATA_HANDLE = ConcurrentUtil.getVarHandle(YsmPacketProxyLayer.class, "lastYsmEntityData", byte[].class);
+    protected static final VarHandle LAST_YSM_MODEL_DATA_HANDLE = ConcurrentUtil.getVarHandle(YsmPacketProxyLayer.class, "lastYsmModelData", byte[].class);
+    protected static final VarHandle LAST_YSM_ANIMATION_DATA_HANDLE = ConcurrentUtil.getVarHandle(YsmPacketProxyLayer.class, "lastYsmAnimationData", byte[].class);
 
     protected YsmPacketProxyLayer(UUID playerUUID) {
         this.player = Freesia.PROXY_SERVER.getPlayer(playerUUID).orElse(null); // Get if it is a real player
@@ -167,11 +169,12 @@ public abstract class YsmPacketProxyLayer implements YsmPacketProxy{
     }
 
     @Override
-    public void sendEntityStateTo(@NotNull Player target) {
+    public void sendFullEntityDataTo(@NotNull Player target) {
         this.acquireReadReference(); // Acquire read reference
 
         final int currEntityId = (int) PLAYER_ENTITY_ID_HANDLE.getVolatile(this);
-        final byte[] currEntityData = (byte[]) LAST_YSM_ENTITY_DATA_HANDLE.getVolatile(this);
+        final byte[] currEntityData = (byte[]) LAST_YSM_MODEL_DATA_HANDLE.getVolatile(this);
+        final byte[] currAnimationData = (byte[]) LAST_YSM_ANIMATION_DATA_HANDLE.getVolatile(this);
 
         this.releaseReadReference(); // Release when we copied the value
 
@@ -180,25 +183,37 @@ public abstract class YsmPacketProxyLayer implements YsmPacketProxy{
             return;
         }
 
-        this.sendEntityStateToRaw(target.getUniqueId(), currEntityId, currEntityData);
+        this.sendModelDataToRaw(target.getUniqueId(), currEntityId, currEntityData);
+        this.sendAnimationDataToRaw(target.getUniqueId(), currEntityId, currAnimationData);
     }
 
     @Override
-    public void setEntityDataRaw(byte[] data) {
-        LAST_YSM_ENTITY_DATA_HANDLE.setVolatile(this, data);
+    public void setModelDataRaw(byte[] data) {
+        LAST_YSM_MODEL_DATA_HANDLE.setVolatile(this, data);
+    }
+
+    @Override
+    public void setAnimationDataRaw(byte[] data) {
+        LAST_YSM_ANIMATION_DATA_HANDLE.setVolatile(this, data);
+    }
+
+    @Override
+    public byte[] getCurrentAnimationDataRaw(byte[] data) {
+        return (byte[]) LAST_YSM_ANIMATION_DATA_HANDLE.getVolatile(this);
     }
 
     @Override
     public void notifyFullTrackerUpdates() {
         this.acquireReadReference(); // Acquire read reference
 
-        final byte[] currEntityData = (byte[]) LAST_YSM_ENTITY_DATA_HANDLE.getVolatile(this);
+        final byte[] currModelData = (byte[]) LAST_YSM_MODEL_DATA_HANDLE.getVolatile(this);
+        final byte[] currAnimationData = (byte[]) LAST_YSM_ANIMATION_DATA_HANDLE.getVolatile(this);
         final int currEntityId = (int) PLAYER_ENTITY_ID_HANDLE.getVolatile(this);
 
         this.releaseReadReference(); // Release when we copied the value
 
         // Not fully initialized yet
-        if (currEntityId == -1 || currEntityData == null) {
+        if (currEntityId == -1 || currModelData == null) {
             return;
         }
 
@@ -212,7 +227,8 @@ public abstract class YsmPacketProxyLayer implements YsmPacketProxy{
         }
 
         // Sync to the owner self
-        this.sendEntityStateToRaw(this.playerUUID, currEntityId, currEntityData);
+        this.sendModelDataToRaw(this.playerUUID, currEntityId, currModelData);
+        this.sendAnimationDataToRaw(this.playerUUID, currEntityId, currAnimationData);
 
         // Fetch can-see list
         this.fetchTrackerList(this.playerUUID).whenComplete((result, ex) -> {
@@ -229,7 +245,8 @@ public abstract class YsmPacketProxyLayer implements YsmPacketProxy{
                 if (queryResult.isPresent()) {
                     // Check ysm installed
                     if (Freesia.mapperManager.isPlayerInstalledYsm(toSend)) {
-                        this.sendEntityStateToRaw(toSend, currEntityId, currEntityData);
+                        this.sendModelDataToRaw(toSend, currEntityId, currModelData);
+                        this.sendAnimationDataToRaw(toSend, currEntityId, currAnimationData);
                     }
                 }
             }
@@ -268,31 +285,49 @@ public abstract class YsmPacketProxyLayer implements YsmPacketProxy{
         this.sendPluginMessageToOwner(YsmMapperPayloadManager.YSM_CHANNEL_KEY_VELOCITY, wrappedPacketData);
     }
 
-    protected void sendEntityStateToRaw(@NotNull UUID receiverUUID, int entityId, byte[] data) {
-        try {
-            final Optional<Player> queryResult = Freesia.PROXY_SERVER.getPlayer(receiverUUID);
+    protected void sendModelDataToRaw(@NotNull UUID receiverUUID, int entityId, byte[] data) {
+        final Optional<Player> queryResult = Freesia.PROXY_SERVER.getPlayer(receiverUUID);
 
-            if (queryResult.isEmpty()) {
-                return;
-            }
-
-            final Player receiver = queryResult.get();
-
-            final FriendlyByteBuf wrappedPacketData = new FriendlyByteBuf(Unpooled.buffer());
-
-            wrappedPacketData.writeByte(YsmProtocolMetaFile.getS2CPacketId(FreesiaConstants.YsmProtocolMetaConstants.Clientbound.ENTITY_DATA_UPDATE));
-            wrappedPacketData.writeVarInt(entityId);
-            wrappedPacketData.writeBytes(data);
-
-            this.sendPluginMessageTo(receiver, YsmMapperPayloadManager.YSM_CHANNEL_KEY_VELOCITY, wrappedPacketData);
-        } catch (Exception e) {
-            Freesia.LOGGER.error("Error in encoding nbt or sending packet!", e);
+        if (queryResult.isEmpty()) {
+            return;
         }
+
+        final Player receiver = queryResult.get();
+
+        final FriendlyByteBuf wrappedPacketData = new FriendlyByteBuf(Unpooled.buffer());
+
+        wrappedPacketData.writeByte(YsmProtocolMetaFile.getS2CPacketId(FreesiaConstants.YsmProtocolMetaConstants.Clientbound.MODEL_DATA_UPDATE));
+        wrappedPacketData.writeVarInt(entityId);
+        wrappedPacketData.writeBytes(data);
+
+        this.sendPluginMessageTo(receiver, YsmMapperPayloadManager.YSM_CHANNEL_KEY_VELOCITY, wrappedPacketData);
+    }
+
+    protected void sendAnimationDataToRaw(@NotNull UUID receiverUUID, int entityId, byte @Nullable [] data) {
+        if (data == null) {
+            return;
+        }
+
+        final Optional<Player> queryResult = Freesia.PROXY_SERVER.getPlayer(receiverUUID);
+
+        if (queryResult.isEmpty()) {
+            return;
+        }
+
+        final Player receiver = queryResult.get();
+
+        final FriendlyByteBuf wrappedPacketData = new FriendlyByteBuf(Unpooled.buffer());
+
+        wrappedPacketData.writeByte(YsmProtocolMetaFile.getS2CPacketId(FreesiaConstants.YsmProtocolMetaConstants.Clientbound.ANIMATION_DATA_UPDATE));
+        wrappedPacketData.writeVarInt(entityId);
+        wrappedPacketData.writeBytes(data);
+
+        this.sendPluginMessageTo(receiver, YsmMapperPayloadManager.YSM_CHANNEL_KEY_VELOCITY, wrappedPacketData);
     }
 
     @Override
-    public byte[] getCurrentEntityState() {
-        return (byte[]) LAST_YSM_ENTITY_DATA_HANDLE.getVolatile(this);
+    public byte[] getCurrentModelData() {
+        return (byte[]) LAST_YSM_MODEL_DATA_HANDLE.getVolatile(this);
     }
 
     @Override

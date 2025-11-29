@@ -18,13 +18,17 @@ public interface YsmPacketProxy {
     @Nullable
     Player getOwner();
 
-    void sendEntityStateTo(@NotNull Player target);
+    void sendFullEntityDataTo(@NotNull Player target);
 
-    void setEntityDataRaw(byte[] data);
+    void setModelDataRaw(byte[] data);
+
+    byte[] getCurrentModelData();
+
+    void setAnimationDataRaw(byte[] data);
+
+    byte[] getCurrentAnimationDataRaw(byte[] data);
 
     void notifyFullTrackerUpdates();
-
-    byte[] getCurrentEntityState();
 
     void setPlayerWorkerEntityId(int id);
 

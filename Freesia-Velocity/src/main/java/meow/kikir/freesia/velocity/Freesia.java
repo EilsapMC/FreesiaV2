@@ -1,11 +1,5 @@
 package meow.kikir.freesia.velocity;
 
-import com.github.retrooper.packetevents.PacketEvents;
-import com.github.retrooper.packetevents.event.PacketListener;
-import com.github.retrooper.packetevents.event.PacketListenerPriority;
-import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerJoinGame;
 import com.google.common.collect.Maps;
 import com.google.inject.Inject;
 import com.velocitypowered.api.event.EventTask;
@@ -22,6 +16,9 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.messages.ChannelIdentifier;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
+import com.velocitypowered.proxy.protocol.MinecraftPacket;
+import com.velocitypowered.proxy.protocol.packet.JoinGamePacket;
+import io.github._4drian3d.vpacketevents.api.event.PacketSendEvent;
 import meow.kikir.freesia.common.EntryPoint;
 import meow.kikir.freesia.common.communicating.NettySocketServer;
 import meow.kikir.freesia.velocity.command.ListYsmPlayersCommand;
@@ -41,8 +38,8 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 
-@Plugin(id = "freesia", name = "Freesia", version = BuildConstants.VERSION, authors = {"EarthMe", "HappyRespawnanchor", "xiaozhangup"}, dependencies = @Dependency(id = "packetevents"))
-public class Freesia implements PacketListener {
+@Plugin(id = "freesia", name = "Freesia", version = BuildConstants.VERSION, authors = {"EarthMe", "HappyRespawnanchor", "xiaozhangup"}, dependencies = @Dependency(id = "vpacketevents"))
+public class Freesia {
     public static final FreesiaPlayerTracker tracker = new FreesiaPlayerTracker();
 
     public static final IDataStorageManager realPlayerDataStorageManager = new DefaultRealPlayerDataStorageManagerImpl();
@@ -100,8 +97,6 @@ public class Freesia implements PacketListener {
         LOGGER.info("Registering events and packet listeners.");
         // Mapper (Core function)
         mapperManager = new YsmMapperPayloadManager(RealPlayerYsmPacketProxyImpl::new);
-        // Register mc packet listener
-        PacketEvents.getAPI().getEventManager().registerListener(this, PacketListenerPriority.HIGHEST);
         // Attach to ysm channel
         this.proxyServer.getChannelRegistrar().register(YsmMapperPayloadManager.YSM_CHANNEL_KEY_VELOCITY);
         // Init tracker
@@ -180,17 +175,17 @@ public class Freesia implements PacketListener {
         }
     }
 
-    @Override
+    @Subscribe
     public void onPacketSend(@NotNull PacketSendEvent event) {
-        // Hook join packet for fetching player's entity id for the tracker
-        if (event.getPacketType() == PacketType.Play.Server.JOIN_GAME) {
-            final WrapperPlayServerJoinGame playerSpawnPacket = new WrapperPlayServerJoinGame(event);
+        final MinecraftPacket packet = event.getPacket();
+        if (packet instanceof JoinGamePacket joinGamePacket) {
             final Player target = event.getPlayer();
+            final int entityId = joinGamePacket.getEntityId();
 
-            logger.info("Entity id update for player {} to {}", target.getUsername(), playerSpawnPacket.getEntityId());
+            logger.info("Entity id update for player {} to {}", target.getUsername(), entityId);
 
             // Update id and try notifying update once
-            mapperManager.updateRealPlayerEntityId(target, playerSpawnPacket.getEntityId());
+            mapperManager.updateRealPlayerEntityId(target, entityId);
 
             // Finalize callbacks
             PROXY_SERVER.getScheduler().buildTask(this, () -> mapperManager.onBackendReady(target)).schedule();

@@ -27,13 +27,38 @@ public class RealPlayerYsmPacketProxyImpl extends YsmPacketProxyLayer{
         return Freesia.tracker.getCanSee(observer);
     }
 
-
     @Override
     public ProxyComputeResult processS2C(Key key, ByteBuf copiedPacketData) {
         final FriendlyByteBuf mcBuffer = new FriendlyByteBuf(copiedPacketData);
         final byte packetId = mcBuffer.readByte();
 
-        if (packetId == YsmProtocolMetaFile.getS2CPacketId(FreesiaConstants.YsmProtocolMetaConstants.Clientbound.ENTITY_DATA_UPDATE)) {
+        if (packetId == YsmProtocolMetaFile.getS2CPacketId(FreesiaConstants.YsmProtocolMetaConstants.Clientbound.ANIMATION_DATA_UPDATE)) {
+            final int workerEntityId = mcBuffer.readVarInt();
+
+            if (!this.isEntityStateOfSelf(workerEntityId)) {
+                return ProxyComputeResult.ofDrop();
+            }
+
+            final MapperSessionProcessor target = Freesia.mapperManager.sessionProcessorByWorkerEntityId(workerEntityId);
+
+            int targetEntityId;
+            if (target == null || (targetEntityId = target.getPacketProxy().getPlayerEntityId()) == -1) {
+                return ProxyComputeResult.ofDrop();
+            }
+
+            final byte[] payload = new byte[mcBuffer.readableBytes()];
+            mcBuffer.readBytes(payload);
+
+            // we need to remap the animation packet to the correct entity id
+            final FriendlyByteBuf remapped = new FriendlyByteBuf(Unpooled.buffer());
+            remapped.writeByte(packetId);
+            remapped.writeVarInt(targetEntityId);
+            remapped.writeBytes(payload);
+
+            return ProxyComputeResult.ofModify(remapped);
+        }
+        
+        if (packetId == YsmProtocolMetaFile.getS2CPacketId(FreesiaConstants.YsmProtocolMetaConstants.Clientbound.MODEL_DATA_UPDATE)) {
             final int workerEntityId = mcBuffer.readVarInt();
 
             if (!this.isEntityStateOfSelf(workerEntityId)) { // Check if the packet is current player and drop to prevent incorrect broadcasting
@@ -45,7 +70,7 @@ public class RealPlayerYsmPacketProxyImpl extends YsmPacketProxyLayer{
 
             // Update stored data
             this.acquireWriteReference(); // Acquire write reference
-            LAST_YSM_ENTITY_DATA_HANDLE.setVolatile(this, returnedNewData);
+            LAST_YSM_MODEL_DATA_HANDLE.setVolatile(this, returnedNewData);
             this.releaseWriteReference(); // Release write reference
 
             this.notifyFullTrackerUpdates(); // Notify updates
@@ -121,6 +146,39 @@ public class RealPlayerYsmPacketProxyImpl extends YsmPacketProxyLayer{
 
                 return ProxyComputeResult.ofModify(newPacketByteBuf);
             }
+        }
+
+        if (packetId == YsmProtocolMetaFile.getC2SPacketId(FreesiaConstants.YsmProtocolMetaConstants.Serverbound.ANIMATION_ACTION)) {
+            final int animationId = mcBuffer.readVarInt();
+            final String animation = mcBuffer.readUtf();
+            final int entityIdBackend = mcBuffer.readVarInt();
+
+            if (entityIdBackend == -1) {
+                return ProxyComputeResult.ofPass();
+            }
+
+            final MapperSessionProcessor targetMapper = Freesia.mapperManager.sessionProcessorByEntityId(entityIdBackend);
+
+            if (targetMapper == null) {
+                Freesia.LOGGER.info("Ignoring invalid animation action with entity id {} for player {}.", entityIdBackend, this.player.getUsername());
+                return ProxyComputeResult.ofDrop();
+            }
+
+            final int entityIdWorker = targetMapper.getPacketProxy().getPlayerWorkerEntityId();
+
+            if (entityIdWorker == -1) {
+                Freesia.LOGGER.info("Ignoring animation action with non-existed worker side entity id for player {}.", this.player.getUsername());
+                return ProxyComputeResult.ofDrop();
+            }
+
+            final FriendlyByteBuf remapped = new FriendlyByteBuf(Unpooled.buffer());
+
+            remapped.writeByte(YsmProtocolMetaFile.getC2SPacketId(FreesiaConstants.YsmProtocolMetaConstants.Serverbound.ANIMATION_ACTION));
+            remapped.writeVarInt(animationId);
+            remapped.writeUtf(animation);
+            remapped.writeVarInt(entityIdWorker);
+
+            return ProxyComputeResult.ofModify(remapped);
         }
 
         return ProxyComputeResult.ofPass();

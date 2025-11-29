@@ -30,6 +30,8 @@ public class YsmMapperPayloadManager {
 
     // Player to worker mappers connections
     private final Map<Player, MapperSessionProcessor> mapperSessions = Maps.newConcurrentMap();
+    private final Map<Integer, MapperSessionProcessor> backendId2Mapper = Maps.newConcurrentMap();
+    private final Map<Integer, MapperSessionProcessor> workerId2Mapper = Maps.newConcurrentMap();
     // Real player proxy factory
     private final Function<Player, YsmPacketProxy> packetProxyCreator;
 
@@ -57,6 +59,8 @@ public class YsmMapperPayloadManager {
         }
 
         mapper.getPacketProxy().setPlayerWorkerEntityId(entityId);
+
+        this.workerId2Mapper.put(entityId, mapper);
     }
 
     public void updateRealPlayerEntityId(Player target, int entityId){
@@ -67,11 +71,21 @@ public class YsmMapperPayloadManager {
         }
 
         mapper.getPacketProxy().setPlayerEntityId(entityId);
+
+        this.backendId2Mapper.put(entityId, mapper);
     }
 
     private void disconnectMapperWithoutKickingMaster(@NotNull MapperSessionProcessor connection) {
         connection.setKickMasterWhenDisconnect(false);
         connection.destroyAndAwaitDisconnected();
+    }
+
+    public MapperSessionProcessor sessionProcessorByEntityId(int entityId) {
+        return this.backendId2Mapper.get(entityId);
+    }
+
+    public MapperSessionProcessor sessionProcessorByWorkerEntityId(int workerEntityId) {
+        return this.workerId2Mapper.get(workerEntityId);
     }
 
     public Map<Integer, RealPlayerYsmPacketProxyImpl> collectRealProxy2WorkerEntityId() {
@@ -130,6 +144,16 @@ public class YsmMapperPayloadManager {
 
         // Remove from list
         this.mapperSessions.remove(mapperSession.getBindPlayer());
+
+        final int backendEntityId = mapperSession.getPacketProxy().getPlayerEntityId();
+        if (backendEntityId != -1) {
+            this.backendId2Mapper.remove(backendEntityId);
+        }
+
+        final int workerEntityId = mapperSession.getPacketProxy().getPlayerWorkerEntityId();
+        if (workerEntityId != -1) {
+            this.workerId2Mapper.remove(workerEntityId);
+        }
     }
 
     public void onPluginMessageIn(@NotNull Player player, @NotNull MinecraftChannelIdentifier channel, byte[] packetData) {
@@ -233,7 +257,7 @@ public class YsmMapperPayloadManager {
         if (this.isPlayerInstalledYsm(watcher)) { // Skip players who don't install ysm
             // Check if ready
             if (!mapperSession.queueTrackerUpdate(watcher.getUniqueId())) {
-                mapperSession.getPacketProxy().sendEntityStateTo(watcher);
+                mapperSession.getPacketProxy().sendFullEntityDataTo(watcher);
             }
         }
     }

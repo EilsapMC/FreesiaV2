@@ -54,14 +54,14 @@ public class FreesiaConstants {
         public static final class Serverbound {
             public static final String HAND_SHAKE_REQUEST = "handshake_request";
             public static final String MOLANG_EXECUTE_REQ = "molang_execute_req";
+            public static final String ANIMATION_ACTION = "animation_action";
         }
 
         // S -> C
         public static final class Clientbound {
             public static final String HAND_SHAKE_CONFIRMED = "handshake_confirmed";
-
-            public static final String ENTITY_DATA_UPDATE = "entity_data_update";
-
+            public static final String MODEL_DATA_UPDATE = "model_data_update";
+            public static final String ANIMATION_DATA_UPDATE = "animation_data_update";
             public static final String MOLANG_EXECUTE = "molang_execute";
         }
     }
