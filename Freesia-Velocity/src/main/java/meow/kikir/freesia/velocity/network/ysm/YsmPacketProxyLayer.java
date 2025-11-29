@@ -35,7 +35,6 @@ public abstract class YsmPacketProxyLayer implements YsmPacketProxy{
     private int workerEntityId = -1;
 
     private int entityDataReferenceCount = 0; // Used for read-writing lock but writing is always happening on a single thread
-    // TODO: Ysm's shit code really disturbs this data storage
     private byte[] lastYsmEntityData = null;
 
     private boolean proxyReady = false;
