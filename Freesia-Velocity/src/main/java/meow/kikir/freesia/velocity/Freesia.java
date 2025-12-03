@@ -167,6 +167,11 @@ public class Freesia {
         final byte[] data = event.getData();
 
         if ((identifier instanceof MinecraftChannelIdentifier mineId) && (event.getSource() instanceof Player player)) {
+            // skip non-ysm channel
+            if (!mineId.equals(YsmMapperPayloadManager.YSM_CHANNEL_KEY_VELOCITY)) {
+                return;
+            }
+            
             event.setResult(PluginMessageEvent.ForwardResult.handled());
 
             // TODO Need a packet rate limiter here?
