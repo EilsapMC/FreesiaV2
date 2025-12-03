@@ -90,13 +90,17 @@ public class RealPlayerYsmPacketProxyImpl extends YsmPacketProxyLayer{
             final int[] entityIds = mcBuffer.readVarIntArray();
             final int[] entityIdsRemapped = new int[entityIds.length];
             final String expression = mcBuffer.readUtf();
-
-            final Map<Integer, RealPlayerYsmPacketProxyImpl> collectedPaddingWorkerEntityId = Freesia.mapperManager.collectRealProxy2WorkerEntityId();
-
             // remap the entity id
             int idx = 0;
             for (int singleWorkerEntityId : entityIds) {
-                final RealPlayerYsmPacketProxyImpl targetProxy = collectedPaddingWorkerEntityId.get(singleWorkerEntityId);
+                final MapperSessionProcessor targetProcessor = Freesia.mapperManager.sessionProcessorByWorkerEntityId(singleWorkerEntityId);
+
+                if (targetProcessor == null) {
+                    continue;
+                }
+
+                // we are using real player's mapper processor, so it could be 100% casted
+                final RealPlayerYsmPacketProxyImpl targetProxy = (RealPlayerYsmPacketProxyImpl) targetProcessor.getPacketProxy();
 
                 if (targetProxy == null) {
                     continue;

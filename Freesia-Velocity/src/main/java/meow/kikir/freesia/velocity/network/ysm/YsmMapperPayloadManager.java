@@ -88,29 +88,6 @@ public class YsmMapperPayloadManager {
         return this.workerId2Mapper.get(workerEntityId);
     }
 
-    public Map<Integer, RealPlayerYsmPacketProxyImpl> collectRealProxy2WorkerEntityId() {
-        final Map<Integer, RealPlayerYsmPacketProxyImpl> result = Maps.newLinkedHashMap();
-
-        // Here we act likes a COWList
-        final Collection<MapperSessionProcessor> copied = new ArrayList<>(this.mapperSessions.values());
-
-        for (MapperSessionProcessor session : copied) {
-            final YsmPacketProxy packetProxy = session.getPacketProxy();
-
-            // If it's real player
-            if (packetProxy instanceof RealPlayerYsmPacketProxyImpl realPlayerProxy) {
-                final int playerEntityId = realPlayerProxy.getPlayerEntityId();
-                final int workerEntityId = realPlayerProxy.getPlayerWorkerEntityId();
-
-                if (playerEntityId != -1 && workerEntityId != -1) { // check if it's ready
-                    result.put(workerEntityId, realPlayerProxy);
-                }
-            }
-        }
-
-        return result;
-    }
-
     public void autoCreateMapper(Player player) {
         this.createMapperSession(player, Objects.requireNonNull(this.selectLessPlayer()));
     }
@@ -145,11 +122,13 @@ public class YsmMapperPayloadManager {
         // Remove from list
         this.mapperSessions.remove(mapperSession.getBindPlayer());
 
+        // remove entity id mappings (backend)
         final int backendEntityId = mapperSession.getPacketProxy().getPlayerEntityId();
         if (backendEntityId != -1) {
             this.backendId2Mapper.remove(backendEntityId);
         }
 
+        // remove entity id mappings (worker)
         final int workerEntityId = mapperSession.getPacketProxy().getPlayerWorkerEntityId();
         if (workerEntityId != -1) {
             this.workerId2Mapper.remove(workerEntityId);
@@ -254,7 +233,8 @@ public class YsmMapperPayloadManager {
             return;
         }
 
-        if (this.isPlayerInstalledYsm(watcher)) { // Skip players who don't install ysm
+        // Skip players who don't install ysm
+        if (this.isPlayerInstalledYsm(watcher)) {
             // Check if ready
             if (!mapperSession.queueTrackerUpdate(watcher.getUniqueId())) {
                 mapperSession.getPacketProxy().sendFullEntityDataTo(watcher);

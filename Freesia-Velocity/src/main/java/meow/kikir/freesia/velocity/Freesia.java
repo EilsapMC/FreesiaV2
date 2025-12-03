@@ -142,7 +142,6 @@ public class Freesia {
 
     @Subscribe
     public EventTask onServerPreConnect(@NotNull ServerPreConnectEvent event) {
-        //mapperManager.updateRealPlayerEntityId(event.getPlayer(), -1); // Reset player's entity id to -1 as non initialized to prevent incorrect tracker status update
         final Player player = event.getPlayer();
 
         // Create mapper processor here
