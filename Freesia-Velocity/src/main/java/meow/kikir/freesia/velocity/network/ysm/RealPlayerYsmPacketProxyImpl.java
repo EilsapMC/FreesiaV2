@@ -11,7 +11,6 @@ import meow.kikir.freesia.velocity.utils.FriendlyByteBuf;
 import io.netty.buffer.ByteBuf;
 import net.kyori.adventure.key.Key;
 
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
