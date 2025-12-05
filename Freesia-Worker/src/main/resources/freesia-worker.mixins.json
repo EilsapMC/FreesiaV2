@@ -6,6 +6,7 @@
   "mixins": [
     "ConnectionMixin",
     "EntityMixin",
+    "LivingEntityMixin",
     "MinecraftServerMixin",
     "PlayerDataStorageMixin",
     "PlayerListMixin",
