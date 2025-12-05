@@ -3,6 +3,9 @@ package meow.kikir.freesia.velocity.network.ysm;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import io.netty.buffer.ByteBuf;
+import meow.kikir.freesia.velocity.network.ysm.protocol.YsmPacket;
+import meow.kikir.freesia.velocity.network.ysm.protocol.YsmPacketCodec;
+import meow.kikir.freesia.velocity.utils.FriendlyByteBuf;
 import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -46,6 +49,25 @@ public interface YsmPacketProxy {
     /*
     下面的都是方便从 velocity 向玩家发包用的了(x)
      */
+    default void sendYsmPacket(YsmPacket packet) {
+        final Player owner = this.getOwner();
+
+        if (owner == null) {
+            throw new UnsupportedOperationException();
+        }
+
+        this.sendYsmPacket(owner, packet);
+    }
+
+    default void sendYsmPacket(Player receiver, YsmPacket packet) {
+        if (receiver == null) {
+            throw new UnsupportedOperationException();
+        }
+
+        final FriendlyByteBuf encoded = YsmPacketCodec.encode(packet);
+        this.sendPluginMessageTo(receiver, YsmMapperPayloadManager.YSM_CHANNEL_KEY_VELOCITY, encoded);
+    }
+
     default void sendPluginMessageToOwner(@NotNull MinecraftChannelIdentifier channel, byte[] data){
         final Player owner = this.getOwner();
 

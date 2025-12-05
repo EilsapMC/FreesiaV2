@@ -2,11 +2,10 @@ package meow.kikir.freesia.velocity.network.ysm;
 
 import ca.spottedleaf.concurrentutil.util.ConcurrentUtil;
 import com.velocitypowered.api.proxy.Player;
-import io.netty.buffer.Unpooled;
 import meow.kikir.freesia.velocity.Freesia;
-import meow.kikir.freesia.velocity.FreesiaConstants;
-import meow.kikir.freesia.velocity.YsmProtocolMetaFile;
-import meow.kikir.freesia.velocity.utils.FriendlyByteBuf;
+import meow.kikir.freesia.velocity.network.ysm.protocol.packets.s2c.S2CAnimationDataUpdatePacket;
+import meow.kikir.freesia.velocity.network.ysm.protocol.packets.s2c.S2CModelDataUpdatePacket;
+import meow.kikir.freesia.velocity.network.ysm.protocol.packets.s2c.S2CMolangExecutePacket;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -153,7 +152,7 @@ public abstract class YsmPacketProxyLayer implements YsmPacketProxy{
         return this.player;
     }
 
-    protected boolean isEntityStateOfSelf(int entityId){
+    public boolean isEntityStateOfSelf(int entityId){
         final int currentWorkerEntityId = (int) WORKER_ENTITY_ID_HANDLE.getVolatile(this);
 
         if (currentWorkerEntityId == -1) {
@@ -189,17 +188,26 @@ public abstract class YsmPacketProxyLayer implements YsmPacketProxy{
 
     @Override
     public void setModelDataRaw(byte[] data) {
+        this.acquireWriteReference();
         LAST_YSM_MODEL_DATA_HANDLE.setVolatile(this, data);
+        this.releaseWriteReference();
     }
 
     @Override
     public void setAnimationDataRaw(byte[] data) {
+        this.acquireWriteReference();
         LAST_YSM_ANIMATION_DATA_HANDLE.setVolatile(this, data);
+        this.releaseWriteReference();
     }
 
     @Override
     public byte[] getCurrentAnimationDataRaw(byte[] data) {
-        return (byte[]) LAST_YSM_ANIMATION_DATA_HANDLE.getVolatile(this);
+        this.acquireReadReference();
+        try {
+            return (byte[]) LAST_YSM_ANIMATION_DATA_HANDLE.getVolatile(this);
+        } finally {
+            this.releaseReadReference();
+        }
     }
 
     @Override
@@ -263,12 +271,9 @@ public abstract class YsmPacketProxyLayer implements YsmPacketProxy{
             return;
         }
 
-        final FriendlyByteBuf wrappedPacketData = new FriendlyByteBuf(Unpooled.buffer());
-        wrappedPacketData.writeByte(YsmProtocolMetaFile.getS2CPacketId(FreesiaConstants.YsmProtocolMetaConstants.Clientbound.MOLANG_EXECUTE));
-        wrappedPacketData.writeVarIntArray(new int[]{playerEntityId}); // Write the entity id
-        wrappedPacketData.writeUtf(expression); // Write the expression
+        final S2CMolangExecutePacket molangExecutePacket = new S2CMolangExecutePacket(new int[]{playerEntityId}, expression);
 
-        this.sendPluginMessageToOwner(YsmMapperPayloadManager.YSM_CHANNEL_KEY_VELOCITY, wrappedPacketData);
+        this.sendYsmPacket(molangExecutePacket);
     }
 
     @Override
@@ -277,12 +282,9 @@ public abstract class YsmPacketProxyLayer implements YsmPacketProxy{
             return;
         }
 
-        final FriendlyByteBuf wrappedPacketData = new FriendlyByteBuf(Unpooled.buffer());
-        wrappedPacketData.writeByte(YsmProtocolMetaFile.getS2CPacketId(FreesiaConstants.YsmProtocolMetaConstants.Clientbound.MOLANG_EXECUTE));
-        wrappedPacketData.writeVarIntArray(entityIds); // Write the entity id
-        wrappedPacketData.writeUtf(expression); // Write the expression
+        final S2CMolangExecutePacket molangExecutePacket = new S2CMolangExecutePacket(entityIds, expression);
 
-        this.sendPluginMessageToOwner(YsmMapperPayloadManager.YSM_CHANNEL_KEY_VELOCITY, wrappedPacketData);
+        this.sendYsmPacket(molangExecutePacket);
     }
 
     protected void sendModelDataToRaw(@NotNull UUID receiverUUID, int entityId, byte[] data) {
@@ -294,13 +296,8 @@ public abstract class YsmPacketProxyLayer implements YsmPacketProxy{
 
         final Player receiver = queryResult.get();
 
-        final FriendlyByteBuf wrappedPacketData = new FriendlyByteBuf(Unpooled.buffer());
-
-        wrappedPacketData.writeByte(YsmProtocolMetaFile.getS2CPacketId(FreesiaConstants.YsmProtocolMetaConstants.Clientbound.MODEL_DATA_UPDATE));
-        wrappedPacketData.writeVarInt(entityId);
-        wrappedPacketData.writeBytes(data);
-
-        this.sendPluginMessageTo(receiver, YsmMapperPayloadManager.YSM_CHANNEL_KEY_VELOCITY, wrappedPacketData);
+        final S2CModelDataUpdatePacket modelDataUpdatePacket = new S2CModelDataUpdatePacket(entityId, data);
+        this.sendYsmPacket(receiver, modelDataUpdatePacket);
     }
 
     protected void sendAnimationDataToRaw(@NotNull UUID receiverUUID, int entityId, byte @Nullable [] data) {
@@ -316,13 +313,9 @@ public abstract class YsmPacketProxyLayer implements YsmPacketProxy{
 
         final Player receiver = queryResult.get();
 
-        final FriendlyByteBuf wrappedPacketData = new FriendlyByteBuf(Unpooled.buffer());
+        final S2CAnimationDataUpdatePacket animationDataUpdatePacket = new S2CAnimationDataUpdatePacket(entityId, data);
 
-        wrappedPacketData.writeByte(YsmProtocolMetaFile.getS2CPacketId(FreesiaConstants.YsmProtocolMetaConstants.Clientbound.ANIMATION_DATA_UPDATE));
-        wrappedPacketData.writeVarInt(entityId);
-        wrappedPacketData.writeBytes(data);
-
-        this.sendPluginMessageTo(receiver, YsmMapperPayloadManager.YSM_CHANNEL_KEY_VELOCITY, wrappedPacketData);
+        this.sendYsmPacket(receiver, animationDataUpdatePacket);
     }
 
     @Override

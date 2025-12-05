@@ -78,7 +78,7 @@ public class MapperSessionProcessor implements SessionListener {
         return true;
     }
 
-    protected YsmPacketProxy getPacketProxy() {
+    public YsmPacketProxy getPacketProxy() {
         return this.packetProxy;
     }
 
