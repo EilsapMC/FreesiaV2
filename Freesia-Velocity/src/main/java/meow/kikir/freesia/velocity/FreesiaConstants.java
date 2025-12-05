@@ -65,7 +65,7 @@ public class FreesiaConstants {
         public static final class Serverbound {
             public static final Pair<String, Pair<Class<? extends YsmPacket>, Supplier<YsmPacket>>> HAND_SHAKE_REQUEST = new Pair<>("handshake_request", new Pair<>(C2SHandshakeRequestPacket.class, C2SHandshakeRequestPacket::new));
             public static final Pair<String, Pair<Class<? extends YsmPacket>, Supplier<YsmPacket>>> MOLANG_EXECUTE_REQ = new Pair<>("molang_execute_req", new Pair<>(C2SMolangExecuteRequestPacket.class, C2SMolangExecuteRequestPacket::new));
-            public static final Pair<String, Pair<Class<? extends YsmPacket>, Supplier<YsmPacket>>> ANIMATION_ACTION = new Pair<>("animation_action", new Pair<>(C2SSetPlayAnimation.class, C2SSetPlayAnimation::new));
+            public static final Pair<String, Pair<Class<? extends YsmPacket>, Supplier<YsmPacket>>> SET_PLAY_ANIMATION = new Pair<>("set_play_animation", new Pair<>(C2SSetPlayAnimation.class, C2SSetPlayAnimation::new));
         }
 
         // S -> C
