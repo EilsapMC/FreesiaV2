@@ -54,6 +54,17 @@ public class WorkerMessageHandlerImpl extends NettyClientChannelHandlerLayer {
         this.retirePlayerFetchCallbacks();
         super.channelInactive(ctx);
 
+        if (ServerLoader.SERVER_INST == null) {
+            // 好罢这里我也没啥办法了
+            // 先单开个新线程罢,反正用完就退出了(x)
+            new Thread(() -> {
+                EntryPoint.LOGGER_INST.info("Server instance is null, using asyn thread to reconnect");
+                ServerLoader.connectToBackend();
+            }).start();
+
+            return;
+        }
+
         ServerLoader.SERVER_INST.execute(ServerLoader::connectToBackend);
     }
 

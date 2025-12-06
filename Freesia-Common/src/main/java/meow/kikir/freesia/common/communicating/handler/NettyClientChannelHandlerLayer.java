@@ -32,11 +32,13 @@ public abstract class NettyClientChannelHandlerLayer extends SimpleChannelInboun
 
     @Override
     public void channelActive(@NotNull ChannelHandlerContext ctx) {
+        this.getClient().resetReadyFlag();
         this.getClient().onChannelActive(ctx.channel());
     }
 
     @Override
     public void channelInactive(@NotNull ChannelHandlerContext ctx) {
+        this.getClient().resetReadyFlag();
         this.getClient().onChannelInactive();
         this.dropAllTransferringFiles();
     }

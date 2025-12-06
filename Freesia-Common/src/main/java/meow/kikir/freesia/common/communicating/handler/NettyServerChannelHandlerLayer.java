@@ -267,7 +267,6 @@ public abstract class NettyServerChannelHandlerLayer extends SimpleChannelInboun
         final int totalEntries = fileChunks.totalChunks();
 
         if (ack != fileChunk.getCurrentId()) {
-            EntryPoint.LOGGER_INST.warn("Mis-ordered file transfer ack received: traceId={}, ack={}, expected={}", traceId, ack, fileChunk.getCurrentId());
             this.fileTransferringRequests.remove(traceId);
 
             try {
@@ -276,11 +275,7 @@ public abstract class NettyServerChannelHandlerLayer extends SimpleChannelInboun
                 EntryPoint.LOGGER_INST.error("Failed to close file channel for trace id {}, file: {}", traceId, fileChunks, e);
             }
 
-            final Runnable callback = this.fileTransferCallbacks.remove(traceId);
-            if (callback != null) {
-                callback.run();
-            }
-            return;
+            throw new IllegalStateException("Mis-ordered file transfer ack received, traceId=" + traceId + ", ack=" + ack + ", expected=" + fileChunk.getCurrentId());
         }
 
         final FileChunk next = fileChunk.next();

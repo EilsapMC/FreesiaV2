@@ -25,6 +25,7 @@ public class ServerLoader implements DedicatedServerModInitializer {
     public static void connectToBackend() {
         EntryPoint.LOGGER_INST.info("Connecting to the master.");
         clientInstance.connect();
+        clientInstance.awaitReady();
     }
 
     @Override
@@ -49,11 +50,10 @@ public class ServerLoader implements DedicatedServerModInitializer {
         clientInstance = new NettySocketClient(FreesiaWorkerConfig.masterServiceAddress, c -> workerConnection = new WorkerMessageHandlerImpl(), FreesiaWorkerConfig.reconnectInterval) {
             @Override
             protected boolean shouldDoNextReconnect() {
-                return SERVER_INST.isRunning();
+                return SERVER_INST == null || SERVER_INST.isRunning();
             }
         };
 
         connectToBackend();
-        clientInstance.awaitReady();
     }
 }

@@ -58,6 +58,7 @@ public class NettySocketClient {
             LockSupport.parkNanos(TimeUnit.SECONDS.toNanos(this.reconnectInterval));
 
             if (!this.shouldDoNextReconnect()) {
+                this.onReady(); // we need to break out that await loop
                 return;
             }
 
@@ -111,6 +112,10 @@ public class NettySocketClient {
         while (!this.workerReady.get()) {
             LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(10));
         }
+    }
+
+    public void resetReadyFlag() {
+        this.workerReady.set(false);
     }
 
     public void onReady() {
