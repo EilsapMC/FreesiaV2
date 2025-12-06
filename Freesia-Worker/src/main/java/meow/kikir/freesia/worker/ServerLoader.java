@@ -29,6 +29,10 @@ public class ServerLoader implements DedicatedServerModInitializer {
 
     @Override
     public void onInitializeServer() {
+        doInit();
+    }
+
+    public static void doInit() {
         EntryPoint.initLogger(LogUtils.getLogger());
 
         try {
@@ -50,5 +54,6 @@ public class ServerLoader implements DedicatedServerModInitializer {
         };
 
         connectToBackend();
+        clientInstance.awaitReady();
     }
 }

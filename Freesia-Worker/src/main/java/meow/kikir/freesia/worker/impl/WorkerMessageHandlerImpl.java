@@ -3,7 +3,6 @@ package meow.kikir.freesia.worker.impl;
 import com.google.common.collect.Maps;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.ParseResults;
-import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import meow.kikir.freesia.common.EntryPoint;
 import meow.kikir.freesia.common.communicating.NettySocketClient;
@@ -27,6 +26,7 @@ import java.io.DataOutputStream;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.StampedLock;
 import java.util.function.Consumer;
@@ -43,7 +43,6 @@ public class WorkerMessageHandlerImpl extends NettyClientChannelHandlerLayer {
         super.channelActive(ctx);
 
         this.getClient().sendToMaster(new W2MWorkerInfoMessage(ServerLoader.workerInfoFile.workerUUID(), ServerLoader.workerInfoFile.workerName()));
-
         ServerLoader.workerConnection = this;
     }
 
@@ -51,6 +50,7 @@ public class WorkerMessageHandlerImpl extends NettyClientChannelHandlerLayer {
     public void channelInactive(@NotNull ChannelHandlerContext ctx) {
         this.retirePlayerFetchCallbacks();
         super.channelInactive(ctx);
+
         ServerLoader.SERVER_INST.execute(ServerLoader::connectToBackend);
     }
 
@@ -171,6 +171,11 @@ public class WorkerMessageHandlerImpl extends NettyClientChannelHandlerLayer {
         ServerLoader.SERVER_INST.execute(scheduledCommand);
 
         return callback;
+    }
+
+    @Override
+    public void handleReadyNotification() {
+        this.getClient().onReady();
     }
 
     public void updatePlayerData(UUID playerUUID, CompoundTag data) {

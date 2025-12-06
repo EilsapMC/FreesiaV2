@@ -11,6 +11,7 @@ import java.net.InetSocketAddress;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Function;
 
@@ -23,6 +24,7 @@ public class NettySocketClient {
     private final int reconnectInterval;
     private volatile Channel channel;
     private volatile boolean isConnected = false;
+    private final AtomicBoolean workerReady = new AtomicBoolean(false);
 
     public NettySocketClient(InetSocketAddress masterAddress, Function<Channel, SimpleChannelInboundHandler<?>> handlerCreator, int reconnectInterval) {
         this.masterAddress = masterAddress;
@@ -103,5 +105,15 @@ public class NettySocketClient {
         this.flushMessageQueueIfNeeded();
 
         ch.writeAndFlush(message);
+    }
+
+    public void awaitReady() {
+        while (!this.workerReady.get()) {
+            LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(10));
+        }
+    }
+
+    public void onReady() {
+        this.workerReady.set(true);
     }
 }

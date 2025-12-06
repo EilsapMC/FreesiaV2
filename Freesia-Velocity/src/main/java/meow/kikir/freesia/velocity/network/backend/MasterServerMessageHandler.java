@@ -6,6 +6,7 @@ import meow.kikir.freesia.common.EntryPoint;
 import meow.kikir.freesia.common.communicating.handler.NettyServerChannelHandlerLayer;
 import meow.kikir.freesia.common.communicating.message.m2w.M2WDispatchCommandMessage;
 import meow.kikir.freesia.velocity.Freesia;
+import meow.kikir.freesia.velocity.FreesiaConstants;
 import meow.kikir.freesia.velocity.events.PlayerEntityDataLoadEvent;
 import meow.kikir.freesia.velocity.events.PlayerEntityDataStoreEvent;
 import meow.kikir.freesia.velocity.events.WorkerConnectedEvent;
@@ -14,8 +15,14 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Map;
-import java.util.UUID;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -25,9 +32,6 @@ import java.util.function.Consumer;
 public class MasterServerMessageHandler extends NettyServerChannelHandlerLayer {
     private final Map<Integer, Consumer<String>> pendingCommandDispatches = Maps.newConcurrentMap();
     private final AtomicInteger traceIdGenerator = new AtomicInteger(0);
-
-    private volatile UUID workerUUID;
-    private volatile String workerName;
 
     private boolean commandDispatcherRetired = false;
     private final StampedLock commandDispatchCallbackLock = new StampedLock();
@@ -88,6 +92,55 @@ public class MasterServerMessageHandler extends NettyServerChannelHandlerLayer {
         Freesia.registedWorkers.remove(this.workerUUID);
     }
 
+    @Override
+    public Map<Path, Path> collectModelFiles() {
+        final Path baseDir = FreesiaConstants.FileConstants.PLUGIN_DIR.toPath().resolve("models");
+        final File file = baseDir.toFile();
+
+        file.mkdirs();
+
+        final Map<Path, Path> collected = new LinkedHashMap<>();
+
+        try {
+            Files.walkFileTree(baseDir, new FileVisitor<>() {
+                @Override
+                public @NotNull FileVisitResult preVisitDirectory(Path dir, @NotNull BasicFileAttributes attrs) {
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public @NotNull FileVisitResult visitFile(Path file, @NotNull BasicFileAttributes attrs) throws IOException {
+                    final Path relativePath = baseDir.relativize(file);
+
+                    if (Files.isDirectory(relativePath)) {
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    collected.put(file, relativePath);
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public @NotNull FileVisitResult visitFileFailed(Path file, @NotNull IOException exc) throws IOException {
+                    EntryPoint.LOGGER_INST.warn("Failed to visit model file: {}", file, exc);
+                    MasterServerMessageHandler.this.getChannel().disconnect();
+                    return FileVisitResult.TERMINATE;
+                }
+
+                @Override
+                public @NotNull FileVisitResult postVisitDirectory(Path dir, @Nullable IOException exc) throws IOException {
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        }catch (Exception e) {
+            this.getChannel().disconnect();
+            EntryPoint.LOGGER_INST.error("Failed to collect model files!", e);
+            throw new RuntimeException(e);
+        }
+
+        return collected;
+    }
+
     private void retireAllCommandDispatchCallbacks() {
         final long stamp = this.commandDispatchCallbackLock.writeLock();
         try {
@@ -145,7 +198,6 @@ public class MasterServerMessageHandler extends NettyServerChannelHandlerLayer {
         return callback;
     }
 
-
     @Override
     public void onCommandDispatchResult(int traceId, @Nullable String result) {
         final Consumer<String> removedDecoder = this.pendingCommandDispatches.remove(traceId);
@@ -156,12 +208,7 @@ public class MasterServerMessageHandler extends NettyServerChannelHandlerLayer {
     }
 
     @Override
-    public void updateWorkerInfo(UUID workerUUID, String workerName) {
-        EntryPoint.LOGGER_INST.info("Worker {} (UUID: {}) connected", workerName, workerUUID);
-
-        this.workerName = workerName;
-        this.workerUUID = workerUUID;
-
+    public void onWorkerInfoGet(UUID workerUUID, String workerName) {
         Freesia.registedWorkers.put(workerUUID, this);
 
         Freesia.PROXY_SERVER.getEventManager().fire(new WorkerConnectedEvent(workerUUID, workerName));
