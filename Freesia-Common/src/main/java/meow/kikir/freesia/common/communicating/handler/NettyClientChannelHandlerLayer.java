@@ -12,10 +12,8 @@ import org.jetbrains.annotations.NotNull;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -50,6 +48,34 @@ public abstract class NettyClientChannelHandlerLayer extends SimpleChannelInboun
     public abstract CompletableFuture<String> dispatchCommand(String command);
 
     public abstract void handleReadyNotification();
+
+    public abstract void callYsmModelReload();
+
+    protected void cleanModelFolder(Path @NotNull [] folders) {
+        for (Path singleModelFolder : folders) {
+            try {
+                if (Files.exists(singleModelFolder)) {
+                    Files.walkFileTree(singleModelFolder, new SimpleFileVisitor<>() {
+                        @Override
+                        @NotNull
+                        public FileVisitResult visitFile(@NotNull Path file, @NotNull BasicFileAttributes attrs) throws IOException {
+                            Files.delete(file);
+                            return FileVisitResult.CONTINUE;
+                        }
+
+                        @Override
+                        @NotNull
+                        public FileVisitResult postVisitDirectory(@NotNull Path dir, IOException exc) throws IOException {
+                            Files.delete(dir);
+                            return FileVisitResult.CONTINUE;
+                        }
+                    });
+                }
+            } catch (IOException e) {
+                EntryPoint.LOGGER_INST.error("Failed to clean model folder: {}", singleModelFolder, e);
+            }
+        }
+    }
 
     private void dropAllTransferringFiles() {
         for (Map.Entry<Integer, FileDispatchDesc> entry : this.fileTransformationChannels.entrySet()) {
@@ -133,8 +159,8 @@ public abstract class NettyClientChannelHandlerLayer extends SimpleChannelInboun
                         )
                 );
                 this.fileTransformationChannels.put(traceId, output);
-            } catch (IOException e) {
-                EntryPoint.LOGGER_INST.error("Failed to open file channel for trace id {}, path: {}", traceId, target, e);
+            } catch (Throwable ex) {
+                EntryPoint.LOGGER_INST.error("Failed to open file channel for trace id {}, path: {}", traceId, target, ex);
                 return;
             }
         }

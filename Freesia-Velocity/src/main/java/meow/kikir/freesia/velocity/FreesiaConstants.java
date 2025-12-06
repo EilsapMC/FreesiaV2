@@ -11,6 +11,7 @@ import meow.kikir.freesia.velocity.network.ysm.protocol.packets.s2c.S2CMolangExe
 import meow.kikir.freesia.velocity.utils.Pair;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.function.Supplier;
 
 public class FreesiaConstants {
@@ -24,6 +25,12 @@ public class FreesiaConstants {
         // player data
         public static final File PLAYER_DATA_DIR = new File(PLUGIN_DIR, "playerdata");
         public static final File VIRTUAL_PLAYER_DATA_DIR = new File(PLUGIN_DIR, "playerdata_virtual");
+
+        public static final String[] MODEL_FOLDERS_SUB = new String[]{
+                "auth",
+                "custom"
+        };
+        public static final Path YSM_MODELS_BASE_DIR = Path.of("config", "yes_steve_model");
 
         static {
             // plugin parent dir

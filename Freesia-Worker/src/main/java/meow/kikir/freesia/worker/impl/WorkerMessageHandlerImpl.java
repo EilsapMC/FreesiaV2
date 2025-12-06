@@ -10,6 +10,7 @@ import meow.kikir.freesia.common.communicating.handler.NettyClientChannelHandler
 import meow.kikir.freesia.common.communicating.message.w2m.W2MPlayerDataGetRequestMessage;
 import meow.kikir.freesia.common.communicating.message.w2m.W2MUpdatePlayerDataRequestMessage;
 import meow.kikir.freesia.common.communicating.message.w2m.W2MWorkerInfoMessage;
+import meow.kikir.freesia.worker.Constants;
 import meow.kikir.freesia.worker.ServerLoader;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.CommandSourceStack;
@@ -44,6 +45,8 @@ public class WorkerMessageHandlerImpl extends NettyClientChannelHandlerLayer {
 
         this.getClient().sendToMaster(new W2MWorkerInfoMessage(ServerLoader.workerInfoFile.workerUUID(), ServerLoader.workerInfoFile.workerName()));
         ServerLoader.workerConnection = this;
+
+        this.cleanModelFolder(Constants.MODELS_PATH_ALL);
     }
 
     @Override
@@ -115,7 +118,6 @@ public class WorkerMessageHandlerImpl extends NettyClientChannelHandlerLayer {
 
     @Override
     public void onMasterPlayerDataResponse(int traceId, byte[] content) {
-        System.out.println(traceId);
         final Consumer<byte[]> removed;
 
         final long readStamp = this.playerDataFetchCallbackLock.readLock();
@@ -176,6 +178,47 @@ public class WorkerMessageHandlerImpl extends NettyClientChannelHandlerLayer {
     @Override
     public void handleReadyNotification() {
         this.getClient().onReady();
+
+        // not on first start
+        if (ServerLoader.SERVER_INST != null) {
+            this.callYsmModelReload();
+        }
+    }
+
+    @Override
+    public void callYsmModelReload() {
+        EntryPoint.LOGGER_INST.info("Calling /ysm model reload");
+
+        final String builtCommand = "ysm model reload";
+
+        Runnable scheduledCommand = () -> {
+            CommandDispatcher<CommandSourceStack> commandDispatcher = ServerLoader.SERVER_INST.getCommands().getDispatcher();
+
+            final ParseResults<CommandSourceStack> parsed = commandDispatcher.parse(builtCommand, ServerLoader.SERVER_INST.createCommandSourceStack().withSource(new CommandSource() {
+                @Override
+                public void sendSystemMessage(Component component) {
+                    EntryPoint.LOGGER_INST.info("Ysm reload response: {}", component.getString());
+                }
+
+                @Override
+                public boolean acceptsSuccess() {
+                    return true;
+                }
+
+                @Override
+                public boolean acceptsFailure() {
+                    return true;
+                }
+
+                @Override
+                public boolean shouldInformAdmins() {
+                    return false;
+                }
+            }));
+
+            ServerLoader.SERVER_INST.getCommands().performCommand(parsed, builtCommand);
+        };
+        ServerLoader.SERVER_INST.execute(scheduledCommand);
     }
 
     public void updatePlayerData(UUID playerUUID, CompoundTag data) {

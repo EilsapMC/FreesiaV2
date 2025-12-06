@@ -95,50 +95,56 @@ public class MasterServerMessageHandler extends NettyServerChannelHandlerLayer {
     @Override
     public Map<Path, Path> collectModelFiles() {
         final Path baseDir = FreesiaConstants.FileConstants.PLUGIN_DIR.toPath().resolve("models");
-        final File file = baseDir.toFile();
-
-        file.mkdirs();
 
         final Map<Path, Path> collected = new LinkedHashMap<>();
+        for (String subFolders : FreesiaConstants.FileConstants.MODEL_FOLDERS_SUB) {
+            final Path currBaseDir = baseDir.resolve(subFolders);
+            final File currFile = currBaseDir.toFile();
+            currFile.mkdirs();
 
-        try {
-            Files.walkFileTree(baseDir, new FileVisitor<>() {
-                @Override
-                public @NotNull FileVisitResult preVisitDirectory(Path dir, @NotNull BasicFileAttributes attrs) {
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public @NotNull FileVisitResult visitFile(Path file, @NotNull BasicFileAttributes attrs) throws IOException {
-                    final Path relativePath = baseDir.relativize(file);
-
-                    if (Files.isDirectory(relativePath)) {
+            try {
+                Files.walkFileTree(currBaseDir, new FileVisitor<>() {
+                    @Override
+                    public @NotNull FileVisitResult preVisitDirectory(Path dir, @NotNull BasicFileAttributes attrs) {
                         return FileVisitResult.CONTINUE;
                     }
 
-                    collected.put(file, relativePath);
-                    return FileVisitResult.CONTINUE;
-                }
+                    @Override
+                    public @NotNull FileVisitResult visitFile(Path file, @NotNull BasicFileAttributes attrs) {
+                        final Path relativePath = FreesiaConstants.FileConstants.YSM_MODELS_BASE_DIR.resolve(baseDir.relativize(file));
 
-                @Override
-                public @NotNull FileVisitResult visitFileFailed(Path file, @NotNull IOException exc) throws IOException {
-                    EntryPoint.LOGGER_INST.warn("Failed to visit model file: {}", file, exc);
-                    MasterServerMessageHandler.this.getChannel().disconnect();
-                    return FileVisitResult.TERMINATE;
-                }
+                        if (Files.isDirectory(relativePath)) {
+                            return FileVisitResult.CONTINUE;
+                        }
 
-                @Override
-                public @NotNull FileVisitResult postVisitDirectory(Path dir, @Nullable IOException exc) throws IOException {
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-        }catch (Exception e) {
-            this.getChannel().disconnect();
-            EntryPoint.LOGGER_INST.error("Failed to collect model files!", e);
-            throw new RuntimeException(e);
+                        collected.put(file, relativePath);
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public @NotNull FileVisitResult visitFileFailed(Path file, @NotNull IOException exc) {
+                        EntryPoint.LOGGER_INST.warn("Failed to visit model file: {}", file, exc);
+                        MasterServerMessageHandler.this.modelSyncFailed(exc);
+                        return FileVisitResult.TERMINATE;
+                    }
+
+                    @Override
+                    public @NotNull FileVisitResult postVisitDirectory(Path dir, @Nullable IOException exc) {
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+            }catch (Throwable th) {
+                this.modelSyncFailed(th);
+            }
         }
 
         return collected;
+    }
+
+    private void modelSyncFailed(Throwable throwable) {
+        this.getChannel().disconnect();
+        EntryPoint.LOGGER_INST.error("Failed to collect model files!", throwable);
+        throw new RuntimeException(throwable);
     }
 
     private void retireAllCommandDispatchCallbacks() {
