@@ -21,10 +21,12 @@ import org.geysermc.mcprotocollib.protocol.packet.ingame.clientbound.Clientbound
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.invoke.VarHandle;
+import java.net.InetSocketAddress;
 import java.util.Optional;
 import java.util.UUID;
 
 public class MapperSessionProcessor implements SessionListener {
+    private InetSocketAddress workerAddress;
     private final Player bindPlayer;
     private final YsmPacketProxy packetProxy;
     private final YsmMapperPayloadManager mapperPayloadManager;
@@ -46,6 +48,14 @@ public class MapperSessionProcessor implements SessionListener {
         this.bindPlayer = bindPlayer;
         this.packetProxy = packetProxy;
         this.mapperPayloadManager = mapperPayloadManager;
+    }
+
+    protected void setWorkerAddress(InetSocketAddress address) {
+        this.workerAddress = address;
+    }
+
+    protected InetSocketAddress getWorkerAddress() {
+        return this.workerAddress;
     }
 
     protected boolean queueTrackerUpdate(UUID target) {

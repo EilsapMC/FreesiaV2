@@ -36,15 +36,47 @@ public class YsmMapperPayloadManager {
     private final Function<Player, YsmPacketProxy> packetProxyCreator;
 
     // Backend connect infos
-    private final ReadWriteLock backendIpsAccessLock = new ReentrantReadWriteLock(false);
-    private final Map<InetSocketAddress, Integer> backend2Players = Maps.newLinkedHashMap();
+    private final ReadWriteLock workerMessionIpsAccessLock = new ReentrantReadWriteLock(false);
+    private final Map<InetSocketAddress, Integer> workerIp2Players = Maps.newLinkedHashMap();
 
     // The players who installed ysm(Used for packet sending reduction)
     private final Set<UUID> ysmInstalledPlayers = Sets.newConcurrentHashSet();
 
     public YsmMapperPayloadManager(Function<Player, YsmPacketProxy> packetProxyCreator) {
         this.packetProxyCreator = packetProxyCreator;
-        this.backend2Players.put(FreesiaConfig.workerMSessionAddress, 1); //TODO Load balance
+        for (InetSocketAddress singleWorkerMsessionAddress : FreesiaConfig.workerMessionAddresses) {
+            this.workerIp2Players.put(singleWorkerMsessionAddress, 0);
+        }
+    }
+
+    public void decreaseWorkerSessionCount(InetSocketAddress worker) {
+        this.workerMessionIpsAccessLock.writeLock().lock();
+        try {
+            final Integer old = this.workerIp2Players.get(worker);
+            if (old == null) {
+                Freesia.LOGGER.warn("Trying to decrease session count for unregisted worker msession address: {}!", worker);
+                return;
+            }
+
+            this.workerIp2Players.put(worker, Math.max(0, old - 1));
+        }finally {
+            this.workerMessionIpsAccessLock.writeLock().unlock();
+        }
+    }
+
+    public void increaseWorkerSessionCount(InetSocketAddress worker) {
+        this.workerMessionIpsAccessLock.writeLock().lock();
+        try {
+            final Integer old = this.workerIp2Players.get(worker);
+            if (old == null) {
+                Freesia.LOGGER.warn("Trying to increase session count for unregisted worker msession address: {}!", worker);
+                return;
+            }
+
+            this.workerIp2Players.put(worker, old + 1);
+        }finally {
+            this.workerMessionIpsAccessLock.writeLock().unlock();
+        }
     }
 
     public void onClientYsmHandshakePacketReply(@NotNull Player target) {
@@ -133,6 +165,11 @@ public class YsmMapperPayloadManager {
         if (workerEntityId != -1) {
             this.workerId2Mapper.remove(workerEntityId);
         }
+
+        final InetSocketAddress workerAddress = mapperSession.getWorkerAddress();
+        if (workerAddress != null) {
+            this.decreaseWorkerSessionCount(workerAddress);
+        }
     }
 
     public void onPluginMessageIn(@NotNull Player player, @NotNull MinecraftChannelIdentifier channel, byte[] packetData) {
@@ -218,8 +255,12 @@ public class YsmMapperPayloadManager {
         mapperSession.setFlag(BuiltinFlags.READ_TIMEOUT,30_000);
         mapperSession.setFlag(BuiltinFlags.WRITE_TIMEOUT,30_000);
 
+        packetProcessor.setWorkerAddress(backend);
+
         // Do connect
         mapperSession.connect(true,false);
+
+        this.increaseWorkerSessionCount(backend);
     }
 
     public void onRealPlayerTrackerUpdate(Player beingWatched, Player watcher) {
@@ -244,13 +285,13 @@ public class YsmMapperPayloadManager {
 
     @Nullable
     private InetSocketAddress selectLessPlayer() {
-        this.backendIpsAccessLock.readLock().lock();
+        this.workerMessionIpsAccessLock.readLock().lock();
         try {
             InetSocketAddress result = null;
 
             int idx = 0;
             int lastCount = 0;
-            for (Map.Entry<InetSocketAddress, Integer> entry : this.backend2Players.entrySet()) {
+            for (Map.Entry<InetSocketAddress, Integer> entry : this.workerIp2Players.entrySet()) {
                 final InetSocketAddress currAddress = entry.getKey();
                 final int currPlayerCount = entry.getValue();
 
@@ -269,7 +310,7 @@ public class YsmMapperPayloadManager {
 
             return result;
         } finally {
-            this.backendIpsAccessLock.readLock().unlock();
+            this.workerMessionIpsAccessLock.readLock().unlock();
         }
     }
 }
