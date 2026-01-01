@@ -44,6 +44,7 @@ public class YsmMapperPayloadManager {
 
     public YsmMapperPayloadManager(Function<Player, YsmPacketProxy> packetProxyCreator) {
         this.packetProxyCreator = packetProxyCreator;
+
         for (InetSocketAddress singleWorkerMsessionAddress : FreesiaConfig.workerMessionAddresses) {
             this.workerIp2Players.put(singleWorkerMsessionAddress, 0);
         }
