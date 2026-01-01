@@ -36,7 +36,7 @@ public class YsmMapperPayloadManager {
     private final Function<Player, YsmPacketProxy> packetProxyCreator;
 
     // Backend connect infos
-    private final ReadWriteLock workerMessionIpsAccessLock = new ReentrantReadWriteLock(false);
+    private final ReadWriteLock workerMsessionIpsAccessLock = new ReentrantReadWriteLock(false);
     private final Map<InetSocketAddress, Integer> workerIp2Players = Maps.newLinkedHashMap();
 
     // The players who installed ysm(Used for packet sending reduction)
@@ -50,7 +50,7 @@ public class YsmMapperPayloadManager {
     }
 
     public void decreaseWorkerSessionCount(InetSocketAddress worker) {
-        this.workerMessionIpsAccessLock.writeLock().lock();
+        this.workerMsessionIpsAccessLock.writeLock().lock();
         try {
             final Integer old = this.workerIp2Players.get(worker);
             if (old == null) {
@@ -60,12 +60,12 @@ public class YsmMapperPayloadManager {
 
             this.workerIp2Players.put(worker, Math.max(0, old - 1));
         }finally {
-            this.workerMessionIpsAccessLock.writeLock().unlock();
+            this.workerMsessionIpsAccessLock.writeLock().unlock();
         }
     }
 
     public void increaseWorkerSessionCount(InetSocketAddress worker) {
-        this.workerMessionIpsAccessLock.writeLock().lock();
+        this.workerMsessionIpsAccessLock.writeLock().lock();
         try {
             final Integer old = this.workerIp2Players.get(worker);
             if (old == null) {
@@ -75,7 +75,7 @@ public class YsmMapperPayloadManager {
 
             this.workerIp2Players.put(worker, old + 1);
         }finally {
-            this.workerMessionIpsAccessLock.writeLock().unlock();
+            this.workerMsessionIpsAccessLock.writeLock().unlock();
         }
     }
 
@@ -285,7 +285,7 @@ public class YsmMapperPayloadManager {
 
     @Nullable
     private InetSocketAddress selectLessPlayer() {
-        this.workerMessionIpsAccessLock.readLock().lock();
+        this.workerMsessionIpsAccessLock.readLock().lock();
         try {
             InetSocketAddress result = null;
 
@@ -310,7 +310,7 @@ public class YsmMapperPayloadManager {
 
             return result;
         } finally {
-            this.workerMessionIpsAccessLock.readLock().unlock();
+            this.workerMsessionIpsAccessLock.readLock().unlock();
         }
     }
 }
