@@ -25,7 +25,6 @@ public class ServerLoader implements DedicatedServerModInitializer {
     public static void connectToBackend() {
         EntryPoint.LOGGER_INST.info("Connecting to the master.");
         clientInstance.connect();
-        clientInstance.awaitReady();
     }
 
     @Override

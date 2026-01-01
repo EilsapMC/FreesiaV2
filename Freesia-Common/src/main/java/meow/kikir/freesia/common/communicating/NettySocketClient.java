@@ -108,17 +108,15 @@ public class NettySocketClient {
         ch.writeAndFlush(message);
     }
 
-    public void awaitReady() {
-        while (!this.workerReady.get()) {
-            LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(10));
-        }
-    }
-
     public void resetReadyFlag() {
         this.workerReady.set(false);
     }
 
     public void onReady() {
         this.workerReady.set(true);
+    }
+
+    public boolean isReady() {
+        return this.workerReady.get();
     }
 }
