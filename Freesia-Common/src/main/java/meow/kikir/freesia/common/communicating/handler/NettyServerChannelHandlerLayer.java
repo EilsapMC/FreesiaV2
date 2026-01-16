@@ -127,6 +127,11 @@ public abstract class NettyServerChannelHandlerLayer extends SimpleChannelInboun
 
     public abstract Map<Path, Path> collectModelFiles();
 
+    // used for api
+    public void callWorkerModelReload() {
+        this.doSyncModels(true);
+    }
+
     public void doSyncModels(boolean syncForReload) {
         final Map<Path, Path> modelFiles = this.collectModelFiles();
 

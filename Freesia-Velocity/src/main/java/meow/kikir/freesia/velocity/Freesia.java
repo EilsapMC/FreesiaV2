@@ -35,8 +35,11 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 @Plugin(id = "freesia", name = "Freesia", version = BuildConstants.VERSION, authors = {"EarthMe", "HappyRespawnanchor", "xiaozhangup"}, dependencies = @Dependency(id = "vpacketevents"))
 public class Freesia {
@@ -194,6 +197,39 @@ public class Freesia {
 
             // Finalize callbacks
             PROXY_SERVER.getScheduler().buildTask(this, () -> mapperManager.onBackendReady(target)).schedule();
+        }
+    }
+
+    /********************************API Part****************************************/
+    public static Freesia getInstance() {
+        return INSTANCE;
+    }
+
+    public static void reloadAllModels() {
+        final List<MasterServerMessageHandler> currConnectedWorkers = new ArrayList<>(registedWorkers.values());
+
+        for (MasterServerMessageHandler workerHandler : currConnectedWorkers) {
+            workerHandler.callWorkerModelReload();
+        }
+    }
+
+    public static MasterServerMessageHandler getWorkerConnectionByUUID(UUID workerUUID) {
+        return registedWorkers.get(workerUUID);
+    }
+
+    public static void callWorkerCommand(String command, Consumer<Component> callbackForEachCall) {
+        final List<MasterServerMessageHandler> currConnectedWorkers = new ArrayList<>(registedWorkers.values());
+
+        for (MasterServerMessageHandler workerHandler : currConnectedWorkers) {
+            workerHandler.dispatchCommandToWorker(command, callbackForEachCall);
+        }
+    }
+
+    public static void callWorkerCommand(UUID workerUUID, String command, Consumer<Component> callbackForEachCall) {
+        final MasterServerMessageHandler workerHandler = registedWorkers.get(workerUUID);
+
+        if (workerHandler != null) {
+            workerHandler.dispatchCommandToWorker(command, callbackForEachCall);
         }
     }
 }
