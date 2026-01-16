@@ -27,7 +27,6 @@ import java.io.DataOutputStream;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.StampedLock;
 import java.util.function.Consumer;
@@ -58,7 +57,7 @@ public class WorkerMessageHandlerImpl extends NettyClientChannelHandlerLayer {
             // 好罢这里我也没啥办法了
             // 先单开个新线程罢,反正用完就退出了(x)
             new Thread(() -> {
-                EntryPoint.LOGGER_INST.info("Server instance is null, using asyn thread to reconnect");
+                EntryPoint.LOGGER_INST.info("Server instance is null, using async thread to reconnect");
                 ServerLoader.connectToBackend();
             }).start();
 
@@ -229,6 +228,7 @@ public class WorkerMessageHandlerImpl extends NettyClientChannelHandlerLayer {
 
             ServerLoader.SERVER_INST.getCommands().performCommand(parsed, builtCommand);
         };
+
         ServerLoader.SERVER_INST.execute(scheduledCommand);
     }
 

@@ -9,6 +9,7 @@ import meow.kikir.freesia.common.communicating.file.FileChunks;
 import meow.kikir.freesia.common.communicating.message.IMessage;
 import meow.kikir.freesia.common.communicating.message.m2w.M2WFileTransformationPacket;
 import meow.kikir.freesia.common.communicating.message.m2w.M2WReadyPacket;
+import meow.kikir.freesia.common.communicating.message.m2w.M2WReloadModelsCallCommand;
 import meow.kikir.freesia.common.utils.LinkedObjects;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -53,7 +54,7 @@ public abstract class NettyServerChannelHandlerLayer extends SimpleChannelInboun
             }
         }
 
-        this.doSyncModels();
+        this.doSyncModels(false);
     }
 
     @Override
@@ -126,7 +127,7 @@ public abstract class NettyServerChannelHandlerLayer extends SimpleChannelInboun
 
     public abstract Map<Path, Path> collectModelFiles();
 
-    public void doSyncModels() {
+    public void doSyncModels(boolean syncForReload) {
         final Map<Path, Path> modelFiles = this.collectModelFiles();
 
         final AtomicInteger latch = new AtomicInteger();
@@ -165,12 +166,22 @@ public abstract class NettyServerChannelHandlerLayer extends SimpleChannelInboun
 
         callback.whenComplete((res, ex) -> {
             if (ex != null) {
+                // synchronization failed, throw exception and disconnect as we had a broken models folder
                 this.modelSynchronizedFailed(ex);
                 return;
             }
 
             EntryPoint.LOGGER_INST.info("Model files synchronization completed. Waking up worker.");
-            this.sendMessage(new M2WReadyPacket());
+
+            if (!syncForReload) {
+                // this would only happen on the connection is firstly established
+                // as we need to force block the worker to wait all models are completely synchronized
+                this.sendMessage(new M2WReadyPacket());
+                return;
+            }
+
+            // otherwise we could just do it asynchronously
+            this.sendMessage(new M2WReloadModelsCallCommand());
         });
     }
 

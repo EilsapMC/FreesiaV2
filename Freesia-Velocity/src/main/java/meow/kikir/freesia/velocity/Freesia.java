@@ -133,8 +133,6 @@ public class Freesia {
         final Player targetPlayer = event.getPlayer();
 
         return EventTask.async(() -> {
-            this.logger.info("Initiating mapper session for player {}", targetPlayer.getUsername());
-
             // Add to client kicker
             kickChecker.onPlayerJoin(targetPlayer);
         });
@@ -157,6 +155,9 @@ public class Freesia {
             mapperManager.initMapperPacketProcessor(player);
 
             // Create or re-create mapper session
+
+            this.logger.info("Initiating mapper session for player {}", player.getUsername());
+
             mapperManager.autoCreateMapper(player);
         });
     }
