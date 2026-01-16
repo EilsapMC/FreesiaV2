@@ -45,7 +45,8 @@ public class FreesiaConstants {
     public static final class PermissionConstants {
         // permission nodes
         public static final String LIST_PLAYER_COMMAND = "freesia.commands.listysmplayers",
-                                   DISPATCH_WORKER_COMMAND = "freesia.commands.dworkerc";
+                                   DISPATCH_WORKER_COMMAND = "freesia.commands.dworkerc",
+                                   RELOAD_MODELS_COMMAND = "freesia.commands.reloadmodels";
     }
 
     public static final class LanguageConstants {

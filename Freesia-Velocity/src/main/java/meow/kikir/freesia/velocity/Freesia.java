@@ -23,6 +23,7 @@ import meow.kikir.freesia.common.EntryPoint;
 import meow.kikir.freesia.common.communicating.NettySocketServer;
 import meow.kikir.freesia.velocity.command.ListYsmPlayersCommand;
 import meow.kikir.freesia.velocity.command.DispatchWorkerCommandCommand;
+import meow.kikir.freesia.velocity.command.ReloadModelsCommand;
 import meow.kikir.freesia.velocity.i18n.I18NManager;
 import meow.kikir.freesia.velocity.network.backend.MasterServerMessageHandler;
 import meow.kikir.freesia.velocity.network.mc.FreesiaPlayerTracker;
@@ -119,6 +120,7 @@ public class Freesia {
         LOGGER.info("Registering commands");
         DispatchWorkerCommandCommand.register();
         ListYsmPlayersCommand.register();
+        ReloadModelsCommand.register();
     }
 
     @Subscribe
