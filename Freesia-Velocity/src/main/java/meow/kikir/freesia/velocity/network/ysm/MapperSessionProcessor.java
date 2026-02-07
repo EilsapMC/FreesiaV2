@@ -7,6 +7,7 @@ import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import meow.kikir.freesia.velocity.Freesia;
+import meow.kikir.freesia.velocity.network.backend.MasterServerMessageHandler;
 import meow.kikir.freesia.velocity.utils.PendingPacket;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
@@ -18,6 +19,7 @@ import org.geysermc.mcprotocollib.protocol.packet.common.clientbound.Clientbound
 import org.geysermc.mcprotocollib.protocol.packet.common.serverbound.ServerboundCustomPayloadPacket;
 import org.geysermc.mcprotocollib.protocol.packet.common.serverbound.ServerboundPongPacket;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.clientbound.ClientboundLoginPacket;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.invoke.VarHandle;
@@ -36,13 +38,15 @@ public class MapperSessionProcessor implements SessionListener {
     private final MultiThreadedQueue<UUID> pendingTrackerUpdatesTo = new MultiThreadedQueue<>();
 
     // Controlled by the VarHandles following
-    private volatile Session session;
+    private Session session;
     private boolean kickMasterWhenDisconnect = true;
     private boolean destroyed = false;
+    private MasterServerMessageHandler linkedMasterHandler = null;
 
     private static final VarHandle KICK_MASTER_HANDLE = ConcurrentUtil.getVarHandle(MapperSessionProcessor.class, "kickMasterWhenDisconnect", boolean.class);
     private static final VarHandle SESSION_HANDLE = ConcurrentUtil.getVarHandle(MapperSessionProcessor.class, "session", Session.class);
     private static final VarHandle DESTROYED_HANDLE = ConcurrentUtil.getVarHandle(MapperSessionProcessor.class, "destroyed", boolean.class);
+    private static final VarHandle MASTER_HANDLER_HANDLE = ConcurrentUtil.getVarHandle(MapperSessionProcessor.class, "linkedMasterHandler", MasterServerMessageHandler.class);
 
     public MapperSessionProcessor(Player bindPlayer, YsmPacketProxy packetProxy, YsmMapperPayloadManager mapperPayloadManager) {
         this.bindPlayer = bindPlayer;
@@ -129,12 +133,28 @@ public class MapperSessionProcessor implements SessionListener {
         return this.bindPlayer;
     }
 
+    protected void checkAndSyncEntityId() {
+        // Sync entity id to worker
+        final MasterServerMessageHandler linkedMWConnection = (MasterServerMessageHandler) MASTER_HANDLER_HANDLE.getVolatile(this);
+
+        // not linked currently
+        if (linkedMWConnection == null) {
+            return;
+        }
+
+        final int entityId = this.packetProxy.getPlayerEntityId();
+
+        linkedMWConnection.sendEntityIdToWorker(this.bindPlayer.getUniqueId(), entityId);
+    }
+
     protected void onBackendReady() {
         // Process incoming packets that we had not ready to process before
         PendingPacket pendingYsmPacket;
         while ((pendingYsmPacket = this.pendingYsmPacketsInbound.pollOrBlockAdds()) != null) { // Destroy(block add operations) the queue
             this.processInComingYsmPacket(pendingYsmPacket.channel(), pendingYsmPacket.data());
         }
+
+        this.checkAndSyncEntityId();
     }
 
     @Override
@@ -142,6 +162,8 @@ public class MapperSessionProcessor implements SessionListener {
         if (packet instanceof ClientboundLoginPacket loginPacket) {
             // Notify entity update to notify the tracker update of the player
             Freesia.mapperManager.updateWorkerPlayerEntityId(this.bindPlayer, loginPacket.getEntityId());
+
+            this.checkAndSyncEntityId();
         }
 
         if (packet instanceof ClientboundCustomPayloadPacket payloadPacket) {
@@ -233,6 +255,12 @@ public class MapperSessionProcessor implements SessionListener {
         // Remove callback
         this.mapperPayloadManager.onWorkerSessionDisconnect(this, (boolean) KICK_MASTER_HANDLE.getVolatile(this), reason); // Fire events
 
+        // Remove link
+        final MasterServerMessageHandler linkedMWConnection = (MasterServerMessageHandler) MASTER_HANDLER_HANDLE.getVolatile(this);
+        if (linkedMWConnection != null) {
+            linkedMWConnection.unlinkMapperSession(this);
+        }
+
         if (updateSession) {
             SESSION_HANDLE.setVolatile(this, null); //Set session to null to finalize the mapper connection
         }
@@ -240,6 +268,25 @@ public class MapperSessionProcessor implements SessionListener {
 
     protected void setSession(Session session) {
         SESSION_HANDLE.setVolatile(this, session);
+    }
+
+    public void destroy() {
+        // Prevent multiple disconnect calls
+        if (!DESTROYED_HANDLE.compareAndSet(this, false, true)) {
+            return;
+        }
+
+        final Session sessionObject = (Session) SESSION_HANDLE.getVolatile(this);
+
+        // Destroy the session
+        if (sessionObject != null) {
+            sessionObject.disconnect("DESTROYED");
+        }else {
+            // Disconnecting a non initialized session
+            // Manual call remove callbacks
+            // Remember: HERE SHOULDN'T BE ANY RACE CONDITION
+            this.detachFromManager(false, null);
+        }
     }
 
     public void destroyAndAwaitDisconnected() {
@@ -271,5 +318,13 @@ public class MapperSessionProcessor implements SessionListener {
         while (SESSION_HANDLE.getVolatile(this) != null) {
             Thread.onSpinWait(); // Spin wait instead of block waiting
         }
+    }
+
+    public void linkToMasterHandler(@NotNull MasterServerMessageHandler masterHandler) {
+        if (!masterHandler.addLinkedMapperSession(this)) {
+            throw new IllegalStateException("Pointed master handler is currently unavailable(disconnected?)");
+        }
+        
+        MASTER_HANDLER_HANDLE.setVolatile(this, masterHandler);
     }
 }

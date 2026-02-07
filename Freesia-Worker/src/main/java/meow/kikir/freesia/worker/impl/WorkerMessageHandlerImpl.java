@@ -1,5 +1,6 @@
 package meow.kikir.freesia.worker.impl;
 
+import ca.spottedleaf.concurrentutil.collection.MultiThreadedQueue;
 import com.google.common.collect.Maps;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.ParseResults;
@@ -7,9 +8,7 @@ import io.netty.channel.ChannelHandlerContext;
 import meow.kikir.freesia.common.EntryPoint;
 import meow.kikir.freesia.common.communicating.NettySocketClient;
 import meow.kikir.freesia.common.communicating.handler.NettyClientChannelHandlerLayer;
-import meow.kikir.freesia.common.communicating.message.w2m.W2MPlayerDataGetRequestMessage;
-import meow.kikir.freesia.common.communicating.message.w2m.W2MUpdatePlayerDataRequestMessage;
-import meow.kikir.freesia.common.communicating.message.w2m.W2MWorkerInfoMessage;
+import meow.kikir.freesia.common.communicating.message.w2m.*;
 import meow.kikir.freesia.worker.Constants;
 import meow.kikir.freesia.worker.ServerLoader;
 import net.minecraft.commands.CommandSource;
@@ -35,6 +34,10 @@ public class WorkerMessageHandlerImpl extends NettyClientChannelHandlerLayer {
     private final AtomicInteger traceIdGenerator = new AtomicInteger(0);
     private final Map<Integer, Consumer<byte[]>> playerDataGetCallbacks = Maps.newConcurrentMap();
 
+    private final Map<UUID, Integer> playerEntityIdMap = Maps.newConcurrentMap();
+    private final Map<UUID, MultiThreadedQueue<Consumer<Integer>>> playerEntityIdRequestCallbacks = Maps.newConcurrentMap();
+    private final Map<UUID, MultiThreadedQueue<Runnable>> mappper2MWLinkingCallbacks = Maps.newConcurrentMap();
+
     private volatile boolean playerDataFetchCallbackRetired = false;
     private final StampedLock playerDataFetchCallbackLock = new StampedLock();
 
@@ -50,6 +53,7 @@ public class WorkerMessageHandlerImpl extends NettyClientChannelHandlerLayer {
 
     @Override
     public void channelInactive(@NotNull ChannelHandlerContext ctx) {
+        this.retireAllEntityIdCallbacks();
         this.retirePlayerFetchCallbacks();
         super.channelInactive(ctx);
 
@@ -65,6 +69,104 @@ public class WorkerMessageHandlerImpl extends NettyClientChannelHandlerLayer {
         }
 
         ServerLoader.SERVER_INST.execute(ServerLoader::connectToBackend);
+    }
+
+    private void retireAllEntityIdCallbacks() {
+        for (Map.Entry<UUID, MultiThreadedQueue<Consumer<Integer>>> entry : this.playerEntityIdRequestCallbacks.entrySet()) {
+            final MultiThreadedQueue<Consumer<Integer>> toRetire = entry.getValue();
+            Consumer<Integer> retired;
+            while ((retired = toRetire.pollOrBlockAdds()) != null) {
+                retired.accept(Integer.MIN_VALUE);
+            }
+        }
+
+        this.playerEntityIdRequestCallbacks.clear();
+    }
+
+    public void ensureLinkedMM(UUID playerUUID, Runnable onLinked) {
+        final MultiThreadedQueue<Runnable> callbackQueue = this.mappper2MWLinkingCallbacks.computeIfAbsent(playerUUID, k -> new MultiThreadedQueue<>());
+
+        if (!callbackQueue.offer(onLinked)) {
+            // already linked
+            onLinked.run();
+        }
+    }
+
+    public void onPlayerRemove(UUID removedPlayer) {
+        this.playerEntityIdMap.remove(removedPlayer);
+        this.mappper2MWLinkingCallbacks.remove(removedPlayer);
+
+        final MultiThreadedQueue<Consumer<Integer>> toRetire = this.playerEntityIdRequestCallbacks.remove(removedPlayer);
+        if (toRetire != null) {
+            Consumer<Integer> retired;
+            while ((retired = toRetire.pollOrBlockAdds()) != null) {
+                retired.accept(Integer.MIN_VALUE);
+            }
+        }
+    }
+
+    @Override
+    public void handleSetPlayerEntityId(UUID targetPlayer, int entityId) {
+        EntryPoint.LOGGER_INST.info("Pointing entity id of player {} to {}", targetPlayer, entityId);
+
+        this.playerEntityIdMap.put(targetPlayer, entityId);
+
+        // we will block add as the entity id is already properly synchronized or the player was removed
+        final MultiThreadedQueue<Consumer<Integer>> toNotify = this.playerEntityIdRequestCallbacks.remove(targetPlayer);
+        if (toNotify != null) {
+            Consumer<Integer> notify;
+            while ((notify = toNotify.pollOrBlockAdds()) != null) {
+                notify.accept(entityId);
+            }
+        }
+    }
+
+    public boolean fetchPlayerEntityId(UUID playerUUID, Consumer<Integer> onGot) {
+        final Integer existingEntityId = this.playerEntityIdMap.get(playerUUID);
+        System.out.println(existingEntityId);
+        if (existingEntityId != null && existingEntityId != Integer.MIN_VALUE) {
+            onGot.accept(existingEntityId);
+            return true;
+        }
+
+        final MultiThreadedQueue<Consumer<Integer>> callbackQueue = this.playerEntityIdRequestCallbacks.computeIfAbsent(playerUUID, k -> new MultiThreadedQueue<>());
+
+        // ok so we are totally failed this
+        // might be the situations following:
+        // 1. the player was removed during the login process of the mapper connection (? this should be impossible)
+        // 2. we are calling the method ahead the real entity id coming to the worker (will 2nd try fetching from cache)
+        if (!callbackQueue.offer(onGot)) {
+            // so we get this, normally return
+            final Integer lookupAgain = this.playerEntityIdMap.get(playerUUID);
+            System.out.println(lookupAgain);
+            if (lookupAgain != null && lookupAgain != Integer.MIN_VALUE) {
+                onGot.accept(lookupAgain);
+                return true;
+            }
+
+            // still null, which means the 2 is not possible, just return false as we cannot raise the request currently
+            return false;
+        }
+
+        // raise the request to notify master to send the entity id
+        this.getClient().sendToMaster(new W2MRequestPlayerEntityIdMessage(playerUUID));
+
+        return true;
+    }
+
+    // note: Integer.MIN_VALUE -> not present
+    public int getPlayerEntityId(UUID playerUUID) {
+        Integer entityId = this.playerEntityIdMap.get(playerUUID);
+
+        if (entityId == null) {
+            return Integer.MIN_VALUE;
+        }
+
+        return entityId;
+    }
+
+    public void sendIdentity(UUID playerUUID) {
+        this.getClient().sendToMaster(new W2MWorkerIdentifyMessage(playerUUID, ServerLoader.workerInfoFile.workerUUID()));
     }
 
     private void retirePlayerFetchCallbacks() {
@@ -230,6 +332,20 @@ public class WorkerMessageHandlerImpl extends NettyClientChannelHandlerLayer {
         };
 
         ServerLoader.SERVER_INST.execute(scheduledCommand);
+    }
+
+    @Override
+    public void handleIdentifyAck(UUID playerUUID) {
+        EntryPoint.LOGGER_INST.info("Worker identified by master for player {}", playerUUID);
+
+        final MultiThreadedQueue<Runnable> callbackQueue = this.mappper2MWLinkingCallbacks.get(playerUUID);
+
+        if (callbackQueue != null) {
+            Runnable callback;
+            while ((callback = callbackQueue.pollOrBlockAdds()) != null) {
+                callback.run();
+            }
+        }
     }
 
     public void updatePlayerData(UUID playerUUID, CompoundTag data) {

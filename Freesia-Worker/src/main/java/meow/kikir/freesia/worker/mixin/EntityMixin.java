@@ -74,4 +74,14 @@ public abstract class EntityMixin {
             entityDataNbt.put("ysm", ysmData);
         }
     }
+
+    @Inject(method = "setRemoved", at = @At(value = "HEAD"))
+    public void onEntityRemoved(CallbackInfo ci) {
+        final Entity thisEntity = (Entity) (Object) this;
+
+        if (thisEntity instanceof Player player) {
+            // if it has changed, we don't care this as the channelInactive will handle it (changed means that we had reconnected once)
+            ServerLoader.workerConnection.onPlayerRemove(player.getUUID());
+        }
+    }
 }

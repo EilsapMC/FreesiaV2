@@ -121,6 +121,10 @@ public class YsmMapperPayloadManager {
         return this.workerId2Mapper.get(workerEntityId);
     }
 
+    public MapperSessionProcessor sessionProcessorByPlayer(@NotNull Player player) {
+        return this.mapperSessions.get(player);
+    }
+
     public void autoCreateMapper(Player player) {
         this.createMapperSession(player, Objects.requireNonNull(this.selectLessPlayer()));
     }
