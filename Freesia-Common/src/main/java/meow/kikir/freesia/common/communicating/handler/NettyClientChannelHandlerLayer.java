@@ -15,7 +15,6 @@ import java.nio.channels.FileChannel;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -43,8 +42,6 @@ public abstract class NettyClientChannelHandlerLayer extends SimpleChannelInboun
         this.getClient().onChannelInactive();
         this.dropAllTransferringFiles();
     }
-
-    public abstract void handleSetPlayerEntityId(UUID targetPlayer, int entityId);
 
     public abstract NettySocketClient getClient();
 
@@ -197,6 +194,4 @@ public abstract class NettyClientChannelHandlerLayer extends SimpleChannelInboun
             }
         }
     }
-
-    public abstract void handleIdentifyAck(UUID playerUUID);
 }

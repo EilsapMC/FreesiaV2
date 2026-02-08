@@ -1,7 +1,10 @@
 package meow.kikir.freesia.common.communicating;
 
 import meow.kikir.freesia.common.communicating.message.IMessage;
-import meow.kikir.freesia.common.communicating.message.m2w.*;
+import meow.kikir.freesia.common.communicating.message.m2w.M2WDispatchCommandMessage;
+import meow.kikir.freesia.common.communicating.message.m2w.M2WFileTransformationPacket;
+import meow.kikir.freesia.common.communicating.message.m2w.M2WPlayerDataResponseMessage;
+import meow.kikir.freesia.common.communicating.message.m2w.M2WReadyPacket;
 import meow.kikir.freesia.common.communicating.message.w2m.*;
 
 import java.util.Map;
@@ -24,10 +27,6 @@ public class BuiltinMessageRegistries {
         registerMessage(M2WFileTransformationPacket.class, M2WFileTransformationPacket::new);
         registerMessage(W2MFileTransformationAckPacket.class, W2MFileTransformationAckPacket::new);
         registerMessage(M2WReadyPacket.class, M2WReadyPacket::new);
-        registerMessage(M2WSetPlayerEntityIdMessage.class, M2WSetPlayerEntityIdMessage::new);
-        registerMessage(W2MRequestPlayerEntityIdMessage.class, W2MRequestPlayerEntityIdMessage::new);
-        registerMessage(W2MWorkerIdentifyMessage.class, W2MWorkerIdentifyMessage::new);
-        registerMessage(M2WWorkerIdentifyAcknowledgedMessage.class, M2WWorkerIdentifyAcknowledgedMessage::new);
     }
 
     public static void registerMessage(Class<? extends IMessage<?>> clazz, Supplier<IMessage<?>> creator) {

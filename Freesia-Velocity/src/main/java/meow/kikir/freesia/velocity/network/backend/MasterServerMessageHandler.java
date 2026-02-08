@@ -1,21 +1,15 @@
 package meow.kikir.freesia.velocity.network.backend;
 
-import ca.spottedleaf.concurrentutil.collection.MultiThreadedQueue;
 import com.google.common.collect.Maps;
-import com.velocitypowered.api.proxy.Player;
 import io.netty.channel.ChannelHandlerContext;
 import meow.kikir.freesia.common.EntryPoint;
 import meow.kikir.freesia.common.communicating.handler.NettyServerChannelHandlerLayer;
 import meow.kikir.freesia.common.communicating.message.m2w.M2WDispatchCommandMessage;
-import meow.kikir.freesia.common.communicating.message.m2w.M2WSetPlayerEntityIdMessage;
-import meow.kikir.freesia.common.communicating.message.m2w.M2WWorkerIdentifyAcknowledgedMessage;
 import meow.kikir.freesia.velocity.Freesia;
 import meow.kikir.freesia.velocity.FreesiaConstants;
 import meow.kikir.freesia.velocity.events.PlayerEntityDataLoadEvent;
 import meow.kikir.freesia.velocity.events.PlayerEntityDataStoreEvent;
 import meow.kikir.freesia.velocity.events.WorkerConnectedEvent;
-import meow.kikir.freesia.velocity.network.ysm.MapperSessionProcessor;
-import meow.kikir.freesia.velocity.network.ysm.YsmPacketProxyLayer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.jetbrains.annotations.NotNull;
@@ -30,6 +24,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.StampedLock;
 import java.util.function.Consumer;
@@ -40,7 +35,6 @@ public class MasterServerMessageHandler extends NettyServerChannelHandlerLayer {
 
     private boolean commandDispatcherRetired = false;
     private final StampedLock commandDispatchCallbackLock = new StampedLock();
-    private final MultiThreadedQueue<MapperSessionProcessor> linkedMapperSessions = new MultiThreadedQueue<>();
 
     public void dispatchCommandToWorker(String command, Consumer<Component> onDispatched) {
         final long stamp = this.commandDispatchCallbackLock.readLock();
@@ -89,7 +83,6 @@ public class MasterServerMessageHandler extends NettyServerChannelHandlerLayer {
 
     @Override
     public void channelInactive(@NotNull ChannelHandlerContext ctx) {
-        this.destroyAllLinkedMappers();
         this.retireAllCommandDispatchCallbacks();
 
         if (this.workerUUID == null) {
@@ -97,13 +90,6 @@ public class MasterServerMessageHandler extends NettyServerChannelHandlerLayer {
         }
 
         Freesia.registedWorkers.remove(this.workerUUID);
-    }
-
-    public void destroyAllLinkedMappers() {
-        MapperSessionProcessor toDestroy;
-        while ((toDestroy = this.linkedMapperSessions.pollOrBlockAdds()) != null) {
-            toDestroy.destroy();
-        }
     }
 
     @Override
@@ -153,34 +139,6 @@ public class MasterServerMessageHandler extends NettyServerChannelHandlerLayer {
         }
 
         return collected;
-    }
-
-    @Override
-    public void handleWorkerIdentify(UUID playerUUID, UUID workerUUID) {
-        final Player target = Freesia.PROXY_SERVER.getPlayer(playerUUID).orElse(null); // do the damn lookup
-
-        if (target == null) {
-            // wait what?
-            throw new IllegalStateException("Requesting identify for an unexisting player!");
-        }
-
-        final MapperSessionProcessor mapperSessionProcessor = Freesia.mapperManager.sessionProcessorByPlayer(target);
-
-        if (mapperSessionProcessor == null) {
-            // wait what?
-            throw new IllegalStateException("Requesting identify for a player without mapper session processor!");
-        }
-
-        if (!workerUUID.equals(this.workerUUID)) {
-            throw new IllegalStateException("Worker UUID mismatch during identify process!");
-        }
-
-        EntryPoint.LOGGER_INST.info("Worker {} identified for player {}({}) to worker {} pointed in pkt", workerUUID, target.getUsername(), target.getUniqueId(), workerUUID);
-
-        mapperSessionProcessor.linkToMasterHandler(this);
-
-        // resume the connection process
-        this.sendMessage(new M2WWorkerIdentifyAcknowledgedMessage(playerUUID));
     }
 
     private void modelSyncFailed(Throwable throwable) {
@@ -256,53 +214,9 @@ public class MasterServerMessageHandler extends NettyServerChannelHandlerLayer {
     }
 
     @Override
-    public void handlePlayerEntityIdRequest(UUID playerUUID) {
-        final Player target = Freesia.PROXY_SERVER.getPlayer(playerUUID).orElse(null); // do the damn lookup
-
-        // no exist
-        if (target == null) {
-            // still need to replay as we need to retire the callbacks
-            Freesia.LOGGER.warn("Player entity ID request for unexisting player {}", playerUUID);
-            this.sendMessage(new M2WSetPlayerEntityIdMessage(playerUUID, Integer.MIN_VALUE));
-            return;
-        }
-
-        final MapperSessionProcessor mapperSessionProcessor = Freesia.mapperManager.sessionProcessorByPlayer(target);
-        final YsmPacketProxyLayer possibleExistingProxy = mapperSessionProcessor == null ? null : (YsmPacketProxyLayer) mapperSessionProcessor.getPacketProxy();
-
-        if (possibleExistingProxy == null) {
-            // ???
-            Freesia.LOGGER.warn("Player entity ID request for player {}({}) without existing YSM proxy", target.getUsername(), playerUUID);
-            this.sendMessage(new M2WSetPlayerEntityIdMessage(playerUUID, Integer.MIN_VALUE));
-            return;
-        }
-
-        final int tryGet = possibleExistingProxy.getPlayerEntityId();
-
-        if (tryGet == -1) {
-            // not ready but also won't care as the proxy ready will send it when it gets ready
-            return;
-        }
-
-        this.sendMessage(new M2WSetPlayerEntityIdMessage(playerUUID, tryGet));
-    }
-
-    public void sendEntityIdToWorker(UUID playerUUID, int entityId) {
-        this.sendMessage(new M2WSetPlayerEntityIdMessage(playerUUID, entityId));
-    }
-
-    @Override
     public void onWorkerInfoGet(UUID workerUUID, String workerName) {
         Freesia.registedWorkers.put(workerUUID, this);
 
         Freesia.PROXY_SERVER.getEventManager().fire(new WorkerConnectedEvent(workerUUID, workerName));
-    }
-
-    public boolean addLinkedMapperSession(@NotNull MapperSessionProcessor mapperSessionProcessor) {
-        return this.linkedMapperSessions.offer(mapperSessionProcessor);
-    }
-
-    public void unlinkMapperSession(@NotNull MapperSessionProcessor mapperSessionProcessor) {
-        this.linkedMapperSessions.remove(mapperSessionProcessor);
     }
 }

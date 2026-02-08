@@ -103,8 +103,6 @@ public abstract class NettyServerChannelHandlerLayer extends SimpleChannelInboun
 
     public abstract void onCommandDispatchResult(int traceId, @Nullable String result);
 
-    public abstract void handlePlayerEntityIdRequest(UUID playerUUID);
-
     public void updateWorkerInfo(UUID workerUUID, String workerName) {
         EntryPoint.LOGGER_INST.info("Worker {} (UUID: {}) connected", workerName, workerUUID);
 
@@ -336,6 +334,4 @@ public abstract class NettyServerChannelHandlerLayer extends SimpleChannelInboun
     public Channel getChannel() {
         return this.channel;
     }
-
-    public abstract void handleWorkerIdentify(UUID playerUUID, UUID workerUUID);
 }
