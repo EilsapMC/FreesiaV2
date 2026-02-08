@@ -5,7 +5,7 @@ import meow.kikir.freesia.velocity.network.ysm.ProxyComputeResult;
 import meow.kikir.freesia.velocity.network.ysm.protocol.EntityIdRemappablePacket;
 import meow.kikir.freesia.velocity.network.ysm.protocol.YsmPacket;
 import meow.kikir.freesia.velocity.network.ysm.protocol.YsmPacketCodec;
-import meow.kikir.freesia.velocity.utils.FriendlyByteBuf;
+import meow.kikir.freesia.common.utils.SimpleFriendlyByteBuf;
 import org.jetbrains.annotations.NotNull;
 
 public class C2SSetPlayAnimation implements YsmPacket, EntityIdRemappablePacket {
@@ -22,14 +22,14 @@ public class C2SSetPlayAnimation implements YsmPacket, EntityIdRemappablePacket 
     }
 
     @Override
-    public void encode(@NotNull FriendlyByteBuf output) {
+    public void encode(@NotNull SimpleFriendlyByteBuf output) {
         output.writeVarInt(this.extraAnimationIndex);
         output.writeUtf(this.classifyId);
         output.writeVarInt(this.entityId);
     }
 
     @Override
-    public void decode(@NotNull FriendlyByteBuf input) {
+    public void decode(@NotNull SimpleFriendlyByteBuf input) {
         this.extraAnimationIndex = input.readVarInt();
         this.classifyId = input.readUtf();
         this.entityId = input.readVarInt();
@@ -49,7 +49,7 @@ public class C2SSetPlayAnimation implements YsmPacket, EntityIdRemappablePacket 
         }
 
         final C2SSetPlayAnimation remapped = new C2SSetPlayAnimation(entityIdWorker, this.classifyId, this.extraAnimationIndex);
-        final FriendlyByteBuf remappedData = YsmPacketCodec.encode(remapped);
+        final SimpleFriendlyByteBuf remappedData = YsmPacketCodec.encode(remapped);
         return ProxyComputeResult.ofModify(remappedData);
     }
 }

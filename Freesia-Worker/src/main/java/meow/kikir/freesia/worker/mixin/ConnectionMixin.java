@@ -14,10 +14,7 @@ import net.minecraft.network.protocol.common.ClientboundUpdateTagsPacket;
 import net.minecraft.network.protocol.configuration.*;
 import net.minecraft.network.protocol.game.ClientboundLoginPacket;
 import net.minecraft.network.protocol.game.ClientboundStartConfigurationPacket;
-import net.minecraft.network.protocol.login.ClientboundGameProfilePacket;
-import net.minecraft.network.protocol.login.ClientboundHelloPacket;
-import net.minecraft.network.protocol.login.ClientboundLoginCompressionPacket;
-import net.minecraft.network.protocol.login.ClientboundLoginDisconnectPacket;
+import net.minecraft.network.protocol.login.*;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
@@ -106,6 +103,7 @@ public abstract class ConnectionMixin {
                 || pkt instanceof ClientboundSelectKnownPacks
                 || pkt instanceof ClientboundUpdateTagsPacket
                 || pkt instanceof ClientboundResetChatPacket
-                || pkt instanceof ClientboundKeepAlivePacket;
+                || pkt instanceof ClientboundKeepAlivePacket
+                || pkt instanceof ClientboundCustomQueryPacket;
     }
 }

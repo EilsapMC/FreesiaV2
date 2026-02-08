@@ -7,7 +7,7 @@ import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import io.netty.buffer.Unpooled;
 import meow.kikir.freesia.velocity.Freesia;
-import meow.kikir.freesia.velocity.utils.FriendlyByteBuf;
+import meow.kikir.freesia.common.utils.SimpleFriendlyByteBuf;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -42,7 +42,7 @@ public class FreesiaPlayerTracker {
 
         event.setResult(PluginMessageEvent.ForwardResult.handled());
 
-        final FriendlyByteBuf packetData = new FriendlyByteBuf(Unpooled.wrappedBuffer(event.getData()));
+        final SimpleFriendlyByteBuf packetData = new SimpleFriendlyByteBuf(Unpooled.wrappedBuffer(event.getData()));
 
         switch (packetData.readVarInt()) {
             case 0 -> {
@@ -95,7 +95,7 @@ public class FreesiaPlayerTracker {
 
         this.pendingCanSeeTasks.put(callbackId, callback::complete);
 
-        final FriendlyByteBuf callbackRequest = new FriendlyByteBuf(Unpooled.buffer());
+        final SimpleFriendlyByteBuf callbackRequest = new SimpleFriendlyByteBuf(Unpooled.buffer());
 
         callbackRequest.writeVarInt(1);
         callbackRequest.writeVarInt(callbackId);

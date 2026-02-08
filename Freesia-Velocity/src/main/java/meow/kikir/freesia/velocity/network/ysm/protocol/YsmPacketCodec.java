@@ -5,7 +5,7 @@ import io.netty.buffer.Unpooled;
 import meow.kikir.freesia.velocity.Freesia;
 import meow.kikir.freesia.velocity.FreesiaConstants;
 import meow.kikir.freesia.velocity.YsmProtocolMetaFile;
-import meow.kikir.freesia.velocity.utils.FriendlyByteBuf;
+import meow.kikir.freesia.common.utils.SimpleFriendlyByteBuf;
 import meow.kikir.freesia.velocity.utils.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -99,7 +99,7 @@ public class YsmPacketCodec {
         }
     }
 
-    public static @Nullable YsmPacket tryDecode(@NotNull FriendlyByteBuf input, EnumPacketDirection direction) {
+    public static @Nullable YsmPacket tryDecode(@NotNull SimpleFriendlyByteBuf input, EnumPacketDirection direction) {
         final int readerIndexBefore = input.readerIndex();
         final int packetId = input.readByte();
 
@@ -115,8 +115,8 @@ public class YsmPacketCodec {
         return packet;
     }
 
-    public static @NotNull FriendlyByteBuf encode(YsmPacket packet){
-        final FriendlyByteBuf result = new FriendlyByteBuf(Unpooled.buffer());
+    public static @NotNull SimpleFriendlyByteBuf encode(YsmPacket packet){
+        final SimpleFriendlyByteBuf result = new SimpleFriendlyByteBuf(Unpooled.buffer());
         final byte packetId = PACKET_REGISTRY.packetIdOf(packet);
         result.writeByte(packetId);
         packet.encode(result);

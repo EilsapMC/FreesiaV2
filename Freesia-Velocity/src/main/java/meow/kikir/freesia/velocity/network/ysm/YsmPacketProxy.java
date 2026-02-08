@@ -5,7 +5,7 @@ import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import io.netty.buffer.ByteBuf;
 import meow.kikir.freesia.velocity.network.ysm.protocol.YsmPacket;
 import meow.kikir.freesia.velocity.network.ysm.protocol.YsmPacketCodec;
-import meow.kikir.freesia.velocity.utils.FriendlyByteBuf;
+import meow.kikir.freesia.common.utils.SimpleFriendlyByteBuf;
 import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -64,7 +64,7 @@ public interface YsmPacketProxy {
             throw new UnsupportedOperationException();
         }
 
-        final FriendlyByteBuf encoded = YsmPacketCodec.encode(packet);
+        final SimpleFriendlyByteBuf encoded = YsmPacketCodec.encode(packet);
         this.sendPluginMessageTo(receiver, YsmMapperPayloadManager.YSM_CHANNEL_KEY_VELOCITY, encoded);
     }
 

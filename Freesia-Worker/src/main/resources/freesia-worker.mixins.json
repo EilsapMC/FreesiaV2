@@ -11,6 +11,7 @@
     "PlayerDataStorageMixin",
     "PlayerListMixin",
     "ServerCommonPacketListenerImplMixin",
+    "ServerConfigurationPacketListenerImplMixin",
     "ServerGamePacketListenerImplMixin",
     "ServerLoginPacketListenerImplMixin",
     "TrackedEntityMixin"

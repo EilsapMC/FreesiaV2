@@ -7,19 +7,19 @@ import meow.kikir.freesia.velocity.events.PlayerYsmHandshakeEvent;
 import meow.kikir.freesia.velocity.network.ysm.MapperSessionProcessor;
 import meow.kikir.freesia.velocity.network.ysm.ProxyComputeResult;
 import meow.kikir.freesia.velocity.network.ysm.protocol.YsmPacket;
-import meow.kikir.freesia.velocity.utils.FriendlyByteBuf;
+import meow.kikir.freesia.common.utils.SimpleFriendlyByteBuf;
 import org.jetbrains.annotations.NotNull;
 
 public class C2SHandshakeRequestPacket implements YsmPacket {
     private String clientYsmVersion;
 
     @Override
-    public void encode(@NotNull FriendlyByteBuf output) {
+    public void encode(@NotNull SimpleFriendlyByteBuf output) {
         output.writeUtf(this.clientYsmVersion);
     }
 
     @Override
-    public void decode(@NotNull FriendlyByteBuf input) {
+    public void decode(@NotNull SimpleFriendlyByteBuf input) {
         this.clientYsmVersion = input.readUtf();
     }
 

@@ -5,7 +5,7 @@ import meow.kikir.freesia.velocity.network.ysm.ProxyComputeResult;
 import meow.kikir.freesia.velocity.network.ysm.YsmPacketProxyLayer;
 import meow.kikir.freesia.velocity.network.ysm.protocol.EntityIdRemappablePacket;
 import meow.kikir.freesia.velocity.network.ysm.protocol.YsmPacket;
-import meow.kikir.freesia.velocity.utils.FriendlyByteBuf;
+import meow.kikir.freesia.common.utils.SimpleFriendlyByteBuf;
 import org.jetbrains.annotations.NotNull;
 
 public class S2CAnimationDataUpdatePacket implements YsmPacket, EntityIdRemappablePacket {
@@ -20,13 +20,13 @@ public class S2CAnimationDataUpdatePacket implements YsmPacket, EntityIdRemappab
     public S2CAnimationDataUpdatePacket() {}
 
     @Override
-    public void encode(@NotNull FriendlyByteBuf output) {
+    public void encode(@NotNull SimpleFriendlyByteBuf output) {
         output.writeVarInt(this.entityId);
         output.writeBytes(this.animationData);
     }
 
     @Override
-    public void decode(@NotNull FriendlyByteBuf input) {
+    public void decode(@NotNull SimpleFriendlyByteBuf input) {
         this.entityId = input.readVarInt();
         this.animationData = new byte[input.readableBytes()];
         input.readBytes(this.animationData);

@@ -2,13 +2,13 @@ package meow.kikir.freesia.velocity.network.ysm.protocol;
 
 import meow.kikir.freesia.velocity.network.ysm.MapperSessionProcessor;
 import meow.kikir.freesia.velocity.network.ysm.ProxyComputeResult;
-import meow.kikir.freesia.velocity.utils.FriendlyByteBuf;
+import meow.kikir.freesia.common.utils.SimpleFriendlyByteBuf;
 import org.jetbrains.annotations.NotNull;
 
 public interface YsmPacket {
-    void encode(@NotNull FriendlyByteBuf output);
+    void encode(@NotNull SimpleFriendlyByteBuf output);
 
-    void decode(@NotNull FriendlyByteBuf input);
+    void decode(@NotNull SimpleFriendlyByteBuf input);
 
     ProxyComputeResult handle(@NotNull MapperSessionProcessor handler);
 }

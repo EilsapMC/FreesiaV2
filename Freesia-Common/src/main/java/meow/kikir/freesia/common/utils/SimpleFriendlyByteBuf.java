@@ -1,4 +1,4 @@
-package meow.kikir.freesia.velocity.utils;
+package meow.kikir.freesia.common.utils;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
@@ -23,10 +23,10 @@ import java.util.UUID;
  * A simplified FriendlyByteBuf reimplementation
  * Taken from minecraft-stress-test(<a href="https://github.com/PureGero/minecraft-stress-test">...</a>)
  */
-public class FriendlyByteBuf extends ByteBuf {
+public class SimpleFriendlyByteBuf extends ByteBuf {
     private final ByteBuf source;
 
-    public FriendlyByteBuf(ByteBuf parent) {
+    public SimpleFriendlyByteBuf(ByteBuf parent) {
         this.source = parent;
     }
 
@@ -49,7 +49,7 @@ public class FriendlyByteBuf extends ByteBuf {
         }
     }
 
-    public FriendlyByteBuf writeVarIntArray(int[] array) {
+    public SimpleFriendlyByteBuf writeVarIntArray(int[] array) {
         this.writeVarInt(array.length);
 
         for (int i : array) {
@@ -113,7 +113,7 @@ public class FriendlyByteBuf extends ByteBuf {
         return i;
     }
 
-    public FriendlyByteBuf writeUUID(UUID uuid) {
+    public SimpleFriendlyByteBuf writeUUID(UUID uuid) {
         this.writeLong(uuid.getMostSignificantBits());
         this.writeLong(uuid.getLeastSignificantBits());
         return this;
@@ -123,7 +123,7 @@ public class FriendlyByteBuf extends ByteBuf {
         return new UUID(this.readLong(), this.readLong());
     }
 
-    public FriendlyByteBuf writeVarInt(int value) {
+    public SimpleFriendlyByteBuf writeVarInt(int value) {
         while ((value & -128) != 0) {
             this.writeByte(value & 127 | 128);
             value >>>= 7;
@@ -133,7 +133,7 @@ public class FriendlyByteBuf extends ByteBuf {
         return this;
     }
 
-    public FriendlyByteBuf writeVarLong(long value) {
+    public SimpleFriendlyByteBuf writeVarLong(long value) {
         while ((value & -128L) != 0L) {
             this.writeByte((int) (value & 127L) | 128);
             value >>>= 7;
@@ -166,11 +166,11 @@ public class FriendlyByteBuf extends ByteBuf {
         }
     }
 
-    public FriendlyByteBuf writeUtf(String string) {
+    public SimpleFriendlyByteBuf writeUtf(String string) {
         return this.writeUtf(string, 32767);
     }
 
-    public FriendlyByteBuf writeUtf(String string, int maxLength) {
+    public SimpleFriendlyByteBuf writeUtf(String string, int maxLength) {
         byte[] abyte = string.getBytes(StandardCharsets.UTF_8);
 
         if (abyte.length > maxLength) {

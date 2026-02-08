@@ -6,7 +6,10 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import meow.kikir.freesia.common.EntryPoint;
+import meow.kikir.freesia.common.data.RequestedPlayerData;
 import meow.kikir.freesia.velocity.Freesia;
+import meow.kikir.freesia.common.utils.SimpleFriendlyByteBuf;
 import meow.kikir.freesia.velocity.utils.PendingPacket;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
@@ -18,6 +21,9 @@ import org.geysermc.mcprotocollib.protocol.packet.common.clientbound.Clientbound
 import org.geysermc.mcprotocollib.protocol.packet.common.serverbound.ServerboundCustomPayloadPacket;
 import org.geysermc.mcprotocollib.protocol.packet.common.serverbound.ServerboundPongPacket;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.clientbound.ClientboundLoginPacket;
+import org.geysermc.mcprotocollib.protocol.packet.login.clientbound.ClientboundCustomQueryPacket;
+import org.geysermc.mcprotocollib.protocol.packet.login.serverbound.ServerboundCustomQueryAnswerPacket;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.invoke.VarHandle;
@@ -34,6 +40,7 @@ public class MapperSessionProcessor implements SessionListener {
     // Callbacks for packet processing and tracker updates
     private final MultiThreadedQueue<PendingPacket> pendingYsmPacketsInbound = new MultiThreadedQueue<>();
     private final MultiThreadedQueue<UUID> pendingTrackerUpdatesTo = new MultiThreadedQueue<>();
+    private final MultiThreadedQueue<Runnable> backendReadyCallbacks = new MultiThreadedQueue<>();
 
     // Controlled by the VarHandles following
     private volatile Session session;
@@ -43,6 +50,9 @@ public class MapperSessionProcessor implements SessionListener {
     private static final VarHandle KICK_MASTER_HANDLE = ConcurrentUtil.getVarHandle(MapperSessionProcessor.class, "kickMasterWhenDisconnect", boolean.class);
     private static final VarHandle SESSION_HANDLE = ConcurrentUtil.getVarHandle(MapperSessionProcessor.class, "session", Session.class);
     private static final VarHandle DESTROYED_HANDLE = ConcurrentUtil.getVarHandle(MapperSessionProcessor.class, "destroyed", boolean.class);
+
+    private static final int FREESIA_LOGIN_CHANNEL_ID = -0x2fe4c2d; // Use a impossible value to prevent some packets coming through handle method incorrectly
+    private static final Key FREESIA_PLUGIN_MESSAGE_CHANNEL_KEY = Key.key("freesia", "login_channel");
 
     public MapperSessionProcessor(Player bindPlayer, YsmPacketProxy packetProxy, YsmMapperPayloadManager mapperPayloadManager) {
         this.bindPlayer = bindPlayer;
@@ -130,6 +140,12 @@ public class MapperSessionProcessor implements SessionListener {
     }
 
     protected void onBackendReady() {
+        // Handle backend ready callbacks
+        Runnable toExecute;
+        while ((toExecute = this.backendReadyCallbacks.pollOrBlockAdds()) != null) {
+            toExecute.run();
+        }
+
         // Process incoming packets that we had not ready to process before
         PendingPacket pendingYsmPacket;
         while ((pendingYsmPacket = this.pendingYsmPacketsInbound.pollOrBlockAdds()) != null) { // Destroy(block add operations) the queue
@@ -137,11 +153,82 @@ public class MapperSessionProcessor implements SessionListener {
         }
     }
 
+    protected void ensureBackendReady(Runnable callback) {
+        boolean queued = this.backendReadyCallbacks.offer(callback);
+
+        // already ready now, run directly
+        if (!queued) {
+            callback.run();
+        }
+    }
+
+    protected void handlePluginMessageRequest(@NotNull ClientboundCustomQueryPacket pluginMessageRequest) {
+        final Key channelKey = pluginMessageRequest.getChannel();
+        final int id = pluginMessageRequest.getMessageId();
+        final byte[] payload = pluginMessageRequest.getData();
+
+        if (id != FREESIA_LOGIN_CHANNEL_ID) {
+            return;
+        }
+
+        if (!channelKey.equals(FREESIA_PLUGIN_MESSAGE_CHANNEL_KEY)) {
+            return;
+        }
+
+        final SimpleFriendlyByteBuf payloadBuf = new SimpleFriendlyByteBuf(Unpooled.wrappedBuffer(payload));
+
+        final int actionId = payloadBuf.readVarInt();
+
+        switch (actionId) {
+            case 0 -> {
+                final UUID requestedUUID = payloadBuf.readUUID();
+
+                // note: proxy read -> we have the entity id of current player
+                // also we may read data first so that we could luckily avoid awaiting the callbacks if possible
+                Freesia.realPlayerDataStorageManager.loadPlayerData(requestedUUID).thenAccept(dataInBytes -> this.ensureBackendReady(() -> {
+                    final RequestedPlayerData result = new RequestedPlayerData();
+
+                    final int playerEntityId = this.packetProxy.getPlayerEntityId();
+
+                    if (playerEntityId == -1) {
+                        throw new IllegalStateException("Uninitialized player entity id in mapper packet proxy layer");
+                    }
+
+                    result.setEntityId(playerEntityId);
+                    result.setRequestedPlayerUUID(requestedUUID);
+                    result.setYsmNbtData(dataInBytes);
+
+                    final SimpleFriendlyByteBuf builtResponseBuf = new SimpleFriendlyByteBuf(Unpooled.buffer());
+
+                    builtResponseBuf.writeVarInt(0); // Action id (0 -> player data response)
+                    builtResponseBuf.writeBytes(result.encode()); // Player data payload
+
+                    final byte[] responseData = new byte[builtResponseBuf.readableBytes()];
+                    builtResponseBuf.readBytes(responseData);
+
+                    final ServerboundCustomQueryAnswerPacket response = new ServerboundCustomQueryAnswerPacket(FREESIA_LOGIN_CHANNEL_ID, responseData);
+
+                    Freesia.LOGGER.info("Synchronizing data for player {} to mapper {}", requestedUUID, this.getWorkerAddress());
+                    this.sendPacket(response);
+                }));
+            }
+
+            default -> {
+                throw new UnsupportedOperationException("Unknown action id: " + actionId);
+            }
+        }
+    }
+
     @Override
     public void packetReceived(Session session, Packet packet) {
         if (packet instanceof ClientboundLoginPacket loginPacket) {
             // Notify entity update to notify the tracker update of the player
+            EntryPoint.LOGGER_INST.info("Mapper {} has logged in mapper for player {}", this.getWorkerAddress(), this.bindPlayer.getUniqueId());
             Freesia.mapperManager.updateWorkerPlayerEntityId(this.bindPlayer, loginPacket.getEntityId());
+        }
+
+        if (packet instanceof ClientboundCustomQueryPacket pluginMessageRequest) {
+            this.handlePluginMessageRequest(pluginMessageRequest);
         }
 
         if (packet instanceof ClientboundCustomPayloadPacket payloadPacket) {

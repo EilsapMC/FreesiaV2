@@ -5,7 +5,7 @@ import meow.kikir.freesia.velocity.Freesia;
 import meow.kikir.freesia.velocity.network.ysm.protocol.EnumPacketDirection;
 import meow.kikir.freesia.velocity.network.ysm.protocol.YsmPacket;
 import meow.kikir.freesia.velocity.network.ysm.protocol.YsmPacketCodec;
-import meow.kikir.freesia.velocity.utils.FriendlyByteBuf;
+import meow.kikir.freesia.common.utils.SimpleFriendlyByteBuf;
 import io.netty.buffer.ByteBuf;
 import net.kyori.adventure.key.Key;
 
@@ -26,7 +26,7 @@ public class RealPlayerYsmPacketProxyImpl extends YsmPacketProxyLayer{
 
     @Override
     public ProxyComputeResult processS2C(Key key, ByteBuf copiedPacketData) {
-        final FriendlyByteBuf mcBuffer = new FriendlyByteBuf(copiedPacketData);
+        final SimpleFriendlyByteBuf mcBuffer = new SimpleFriendlyByteBuf(copiedPacketData);
         final YsmPacket decoded = YsmPacketCodec.tryDecode(mcBuffer, EnumPacketDirection.S2C);
 
         if (decoded != null) {
@@ -38,7 +38,7 @@ public class RealPlayerYsmPacketProxyImpl extends YsmPacketProxyLayer{
 
     @Override
     public ProxyComputeResult processC2S(Key key, ByteBuf copiedPacketData) {
-        final FriendlyByteBuf mcBuffer = new FriendlyByteBuf(copiedPacketData);
+        final SimpleFriendlyByteBuf mcBuffer = new SimpleFriendlyByteBuf(copiedPacketData);
         final YsmPacket decoded = YsmPacketCodec.tryDecode(mcBuffer, EnumPacketDirection.C2S);
 
         if (decoded != null) {
